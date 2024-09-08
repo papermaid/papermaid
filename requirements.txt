@@ -1,2 +1,4 @@
+python-decouple
 streamlit
+streamlit-chat
 openai
