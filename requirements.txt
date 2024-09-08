@@ -1,0 +1,8 @@
+python-dotenv
+aiohttp
+openai
+gradio
+ijson
+nest_asyncio
+tenacity
+azure-cosmos
