@@ -6,10 +6,10 @@ from src.utils import add_custom_css
 add_custom_css()
 
 
-def main(state=None):
+def main():
     current_page = st.sidebar.radio(label=":rainbow[**Pages**]",
                                     options=list(PAGE_MAP))
-    PAGE_MAP[current_page](state=state).write()
+    PAGE_MAP[current_page]().write()
 
 
 if __name__ == "__main__":
