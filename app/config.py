@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from decouple import config
 
-load_dotenv("/Users/krittinsetdhavanich/Downloads/papermaid/.env")
+load_dotenv(".env")
 
 
 # Cosmos DB configuration
@@ -19,3 +19,6 @@ OPENAI_API_VERSION = os.getenv('openai_api_version')
 OPENAI_EMBEDDINGS_DEPLOYMENT = os.getenv('openai_embeddings_deployment')
 OPENAI_EMBEDDINGS_DIMENSIONS = os.getenv('openai_embeddings_dimensions')
 OPENAI_COMPLETIONS_DEPLOYMENT = os.getenv('openai_completions_deployment')
+
+# Model configuration
+OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
