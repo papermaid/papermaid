@@ -37,7 +37,6 @@ class App:
 
             msg.submit(self.user, [msg, chatbot], [msg, chatbot], queue=False)
             clear.click(lambda: None, None, chatbot, queue=False)
-
         return demo
 
     def run(self):
