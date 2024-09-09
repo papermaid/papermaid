@@ -1,29 +1,31 @@
+import config
 import json
+import logging
 
+from typing import Any
 from openai import OpenAI
 
-import config
+from src.services.embeddings import EmbeddingsGenerator
+from src.services.database import CosmosDB
 
+
+logger = logging.getLogger('papermaid')
 
 class ChatCompletion:
-    def __init__(self, cosmos_db, embeddings_generator):
+    def __init__(self, cosmos_db: CosmosDB, embeddings_generator: EmbeddingsGenerator) -> None:
         self.client = OpenAI(api_key=config.OPENAI_KEY)
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
 
+    def vector_search(self, vectors: list[float], similarity_score=0.02, num_results=5) -> list[dict[str, Any]]:
+        """
+        Search the Cosmos DB for the most similar vectors to the given vectors.
 
-    def chat_completion(self, user_input):
-        user_embeddings = self.embeddings_generator.generate_embeddings(
-            user_input)
-        search_results = self.vector_search(user_embeddings)
-        chat_history = self.get_chat_history(3)
-        completions_results = self.generate_completion(user_input,
-                                                       search_results,
-                                                       chat_history)
-        return completions_results['choices'][0]['message']['content']
-
-
-    def vector_search(self, vectors, similarity_score=0.02, num_results=5):
+        :param vectors: The vectors to search for.
+        :param similarity_score: The minimum similarity score to return.
+        :param num_results: The number of results to return.
+        :return: The most similar vectors to the given vectors
+        """
         results = self.cosmos_db.query_items(
             query='''
         SELECT TOP @num_results c.overview, VectorDistance(c.vector, @embedding) as SimilarityScore 
@@ -45,7 +47,13 @@ class ChatCompletion:
         ]
         return formatted_results
 
-    def get_chat_history(self, completions=3):
+    def get_chat_history(self, completions=3) -> list:
+        """
+        Get the chat history from the Cosmos DB.
+
+        :param completions: The number of completions to return.
+        :return: The chat history.
+        """
         results = self.cosmos_db.query_items(
             query='''
         SELECT TOP @completions *
@@ -54,11 +62,18 @@ class ChatCompletion:
         ''',
             parameters=[{"name": "@completions", "value": completions}]
         )
-        print("Done getting chat history")
+        logger.info("Done getting chat history")
         return list(results)
 
-    def generate_completion(self, user_prompt, vector_search_results,
-                            chat_history):
+    def generate_completion(self, user_prompt: str, vector_search_results: list, chat_history: list[dict]) -> dict[str, Any]:
+        """
+        Get dictionary representation of the model.
+
+        :param user_prompt: The user prompt to complete.
+        :param vector_search_results: The vector search results.
+        :param chat_history: The chat history.
+        :return: The dictionary representation of the model.
+        """
         system_prompt = '''
     You are an intelligent assistant for movies. You are designed to provide helpful answers to user questions about movies in your database.
     You are friendly, helpful, and informative and can be lighthearted. Be concise in your responses, but still friendly.
@@ -76,12 +91,30 @@ class ChatCompletion:
             [{'role': 'system', 'content': json.dumps(result['document'])} for
              result in vector_search_results])
 
-        print("Messages going to OpenAI:", messages)
+        logger.debug("Messages going to OpenAI: %s", messages)
 
         response = self.client.chat.completions.create(
             model=config.OPENAI_COMPLETIONS_DEPLOYMENT,
             messages=messages,
             temperature=0.1
         )
-        print("Done generating completions")
+        logger.debug("Done generating completions in generate_completion")
         return response.model_dump()
+
+    def chat_completion(self, user_input: str) -> str:
+        """
+        Complete the user input.
+
+        :param user_input: The user input to be completed.
+        :return: The completion of the user input.
+        """
+        logger.info("Starting completetion: %s", user_input)
+        user_embeddings = self.embeddings_generator.generate_embeddings(user_input)
+        search_results = self.vector_search(user_embeddings)
+        chat_history = self.get_chat_history(3)
+        completions_results = self.generate_completion(user_input,
+                                                       search_results,
+                                                       chat_history)
+        completions_results = completions_results['choices'][0]['message']['content']
+        logger.info("Done generating completions: %s", completions_results)
+        return completions_results

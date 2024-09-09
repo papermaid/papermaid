@@ -1,13 +1,18 @@
 import asyncio
+import logging
 import os
 import time
 import uuid
 
 from PyPDF2 import PdfReader
 
+from src.services.database import CosmosDB
+from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+
+logger = logging.getLogger('papermaid')
 
 class DataProcessor:
-    def __init__(self, cosmos_db, langchain_embeddings_generator):
+    def __init__(self, cosmos_db: CosmosDB, langchain_embeddings_generator: LangchainEmbeddingsGenerator):
         self.cosmos_db = cosmos_db
         self.langchain_embeddings_generator = langchain_embeddings_generator
 
@@ -16,7 +21,7 @@ class DataProcessor:
         data_with_vectors = await self.generate_vectors(data, vector_property)
         await self.insert_data(data_with_vectors)
 
-    async def process_pdfs(self, folder_path):
+    async def process_pdfs(self, folder_path: str) -> list[dict]:
         pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
         data = []
 
@@ -31,11 +36,11 @@ class DataProcessor:
                 'partitionKey': pdf_file
             }
             data.append(item)
-        print(f"Processed {len(data)} PDF files")
+        logger.info(f"Processed {len(data)} PDF files")
         return data
 
     @staticmethod
-    async def extract_text_from_pdf(pdf_path):
+    async def extract_text_from_pdf(pdf_path: str) -> str:
         with open(pdf_path, 'rb') as file:
             reader = PdfReader(file)
             text = ""
@@ -43,12 +48,12 @@ class DataProcessor:
                 text += page.extract_text() + "\n"
         return text
 
-    async def generate_vectors(self, items, vector_property):
+    async def generate_vectors(self, items: dict, vector_property):
         for item in items:
             vectorArray = await self.langchain_embeddings_generator.generate_embeddings(
                 item['content'])
             item[vector_property] = vectorArray
-        print("Done generating vectors")
+        logger.info("Done generating vectors")
         return items
 
     async def insert_data(self, data):
@@ -66,7 +71,7 @@ class DataProcessor:
                                                                obj)
                 counter += 1
                 if counter % 100 == 0:
-                    print(
+                    logger.debug(
                         f"Sent {counter} documents for insertion into collection.")
 
         for obj in data:
@@ -76,6 +81,6 @@ class DataProcessor:
 
         end_time = time.time()
         duration = end_time - start_time
-        print(f"All {counter} documents inserted!")
-        print(
-            f"Time taken: {duration:.2f} seconds ({duration:.3f} milliseconds)")
+
+        logger.info(f"All {counter} documents inserted!")
+        logger.debug(f"Time taken: {duration:.2f} seconds ({duration:.3f} milliseconds)")

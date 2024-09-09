@@ -1,9 +1,12 @@
-from langchain.embeddings import OpenAIEmbeddings
+import logging
+
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 
 import config
 
+logger = logging.getLogger('papermaid')
 
 class LangchainEmbeddingsGenerator:
     def __init__(self):
@@ -14,7 +17,7 @@ class LangchainEmbeddingsGenerator:
             length_function=len,
         )
 
-    async def generate_embeddings(self, text):
+    async def generate_embeddings(self, text: str):
         docs = [Document(page_content=text)]
         chunks = self.text_splitter.split_documents(docs)
 
@@ -24,5 +27,5 @@ class LangchainEmbeddingsGenerator:
             embeddings.append(embedding)
 
         avg_embedding = [sum(x) / len(x) for x in zip(*embeddings)]
-        print("Done embedding generation")
+        logger.info("Done embedding generation")
         return avg_embedding

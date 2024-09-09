@@ -1,7 +1,11 @@
-from azure.cosmos import CosmosClient, PartitionKey, exceptions
+import logging
+
+from azure.cosmos import container, CosmosClient, PartitionKey, exceptions
 
 import config
 
+
+logger = logging.getLogger('papermaid')
 
 class CosmosDB:
     def __init__(self):
@@ -11,7 +15,13 @@ class CosmosDB:
             config.COSMOS_DATABASE)
         self.container = self.create_container()
 
-    def create_container(self):
+    def create_container(self) -> container.ContainerProxy | None:
+        """
+        Create a Cosmos DB container.
+
+        :return: The created container proxy.
+        :raises: CosmosHttpResponseError if the container cannot be created.
+        """
         vector_embedding_policy = {
             "vectorEmbeddings": [
                 {
@@ -45,17 +55,30 @@ class CosmosDB:
                 vector_embedding_policy=vector_embedding_policy,
                 offer_throughput=1000
             )
-            print(f'Container with id \'{container.id}\' created')
+            logger.info(f'Container with id \'{container.id}\' created')
             return container
         except exceptions.CosmosHttpResponseError as e:
-            print(f"Error creating containers: {e}")
+            logger.error(f"Error creating containers: {e}")
             raise
 
     def upsert_item(self, item):
+        """
+        Insert or update the specified item.
+
+        If the item already exists in the container, it is replaced.
+        If the item does not already exist, it is inserted.
+        """
         return self.container.upsert_item(body=item)
 
     def query_items(self, query, parameters, enable_cross_partition_query=True,
                     populate_query_metrics=True):
+        """
+        Return all results matching the given query.
+
+        You can use any value for the container name in the FROM clause, but often the container name is used.
+        In the examples below, the container name is "products,"
+        and is aliased as "p" for easier referencing in the WHERE clause.
+        """
         return self.container.query_items(
             query=query,
             parameters=parameters,
