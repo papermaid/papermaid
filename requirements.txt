@@ -1,8 +1,11 @@
+gradio # Remove soon.
 python-dotenv
 aiohttp
 openai
-gradio
 ijson
 nest_asyncio
 tenacity
 azure-cosmos
+python-decouple
+streamlit
+streamlit-chat
