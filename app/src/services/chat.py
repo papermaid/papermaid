@@ -12,7 +12,6 @@ class ChatCompletion:
         self.embeddings_generator = embeddings_generator
 
     def vector_search(self, vectors, similarity_score=0.02, num_results=5):
-        print("Starting vector search")
         results = self.cosmos_db.query_items(
             query='''
         SELECT TOP @num_results c.overview, VectorDistance(c.vector, @embedding) as SimilarityScore 
@@ -32,11 +31,9 @@ class ChatCompletion:
              'document': result}
             for result in results
         ]
-        print("Done vector search")
         return formatted_results
 
     def get_chat_history(self, completions=3):
-        print("Getting chat history")
         results = self.cosmos_db.query_items(
             query='''
         SELECT TOP @completions *
@@ -56,7 +53,6 @@ class ChatCompletion:
         - Only answer questions related to the information provided below. Provide at least 3 candidate movie answers in a list.
         - Write two lines of whitespace between each answer in the list.
     '''
-        print("Generating completions")
 
         messages = [{'role': 'system', 'content': system_prompt}]
         messages.extend(
@@ -79,14 +75,10 @@ class ChatCompletion:
         return response.model_dump()
 
     def chat_completion(self, user_input):
-        print("Starting completion")
         user_embeddings = self.embeddings_generator.generate_embeddings(
             user_input)
-        print("Searching vectors")
         search_results = self.vector_search(user_embeddings)
-        print("Getting Chat History")
         chat_history = self.get_chat_history(3)
-        print("Generating completions")
         completions_results = self.generate_completion(user_input,
                                                        search_results,
                                                        chat_history)

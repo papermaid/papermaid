@@ -33,7 +33,6 @@ class DataProcessor:
         counter = 0
         tasks = []
         max_concurrency = 5
-        print("Starting document load, please wait...")
         semaphore = asyncio.Semaphore(max_concurrency)
 
         async def upsert_object(obj):
