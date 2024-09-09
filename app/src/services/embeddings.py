@@ -16,3 +16,4 @@ class EmbeddingsGenerator:
         embeddings = response.model_dump()
         print("Done embedding generation")
         return embeddings['data'][0]['embedding']
+

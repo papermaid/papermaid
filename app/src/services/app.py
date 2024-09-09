@@ -15,8 +15,8 @@ class App:
         self.embeddings_generator = EmbeddingsGenerator()
         self.chat_completion = ChatCompletion(self.cosmos_db,
                                               self.embeddings_generator)
-        # self.data_processor = DataProcessor(self.cosmos_db,
-        #                                     self.embeddings_generator)
+        self.data_processor = DataProcessor(self.cosmos_db,
+                                            self.embeddings_generator)
 
     def user(self, user_message, chat_history):
         start_time = time.time()

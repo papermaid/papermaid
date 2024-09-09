@@ -9,3 +9,6 @@ azure-cosmos
 python-decouple
 streamlit
 streamlit-chat
+PyPDF2
+langchain-community
+tiktoken

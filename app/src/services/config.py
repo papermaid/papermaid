@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
+from decouple import config
 
 load_dotenv("/Users/krittinsetdhavanich/Downloads/papermaid/.env")
+
 
 # Cosmos DB configuration
 COSMOS_CONN = os.getenv('cosmos_uri')

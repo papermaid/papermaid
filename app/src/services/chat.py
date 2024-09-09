@@ -69,7 +69,7 @@ class ChatCompletion:
         messages = [{'role': 'system', 'content': system_prompt}]
         messages.extend(
             [{'role': 'user',
-              'content': f"{chat['prompt']} {chat['completion']}"}
+              'content': f"{chat.get('prompt', '')} {chat.get('completion', '')}"}
              for chat in chat_history])
         messages.append({'role': 'user', 'content': user_prompt})
         messages.extend(
