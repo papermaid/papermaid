@@ -11,6 +11,18 @@ class ChatCompletion:
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
 
+
+    def chat_completion(self, user_input):
+        user_embeddings = self.embeddings_generator.generate_embeddings(
+            user_input)
+        search_results = self.vector_search(user_embeddings)
+        chat_history = self.get_chat_history(3)
+        completions_results = self.generate_completion(user_input,
+                                                       search_results,
+                                                       chat_history)
+        return completions_results['choices'][0]['message']['content']
+
+
     def vector_search(self, vectors, similarity_score=0.02, num_results=5):
         results = self.cosmos_db.query_items(
             query='''
@@ -73,14 +85,3 @@ class ChatCompletion:
         )
         print("Done generating completions")
         return response.model_dump()
-
-    def chat_completion(self, user_input):
-        user_embeddings = self.embeddings_generator.generate_embeddings(
-            user_input)
-        search_results = self.vector_search(user_embeddings)
-        chat_history = self.get_chat_history(3)
-        completions_results = self.generate_completion(user_input,
-                                                       search_results,
-                                                       chat_history)
-        return completions_results['choices'][0]['message']['content']
-
