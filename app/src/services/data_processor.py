@@ -16,12 +16,20 @@ class DataProcessor:
         self.cosmos_db = cosmos_db
         self.langchain_embeddings_generator = langchain_embeddings_generator
 
-    async def process_and_insert_pdfs(self, folder_path, vector_property):
-        data = await self.process_pdfs(folder_path)
-        data_with_vectors = await self.generate_vectors(data, vector_property)
-        await self.insert_data(data_with_vectors)
+    async def process_and_insert_pdfs(self, folder_path: str, vector_property: str):
+        data = await self.process_pdfs(folder_path) # Process PDF files
+        data_with_vectors = await self.generate_vectors(data, vector_property) # Generate vectors for the content of each item
+        await self.insert_data(data_with_vectors) # Insert the data into Cosmos DB
 
     async def process_pdfs(self, folder_path: str) -> list[dict]:
+        """
+        Processes all PDF files in the specified folder, extracts text content from each PDF,
+        and returns a list of dictionaries containing metadata and extracted text.
+
+        :param folder_path: The path to the folder containing the PDF files.
+        :return: A list of dictionaries containing metadata and extracted text content.
+        """
+        logger.info(f"Processing PDF files in {folder_path}")
         pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
         data = []
 
@@ -36,7 +44,8 @@ class DataProcessor:
                 'partitionKey': pdf_file
             }
             data.append(item)
-        logger.info(f"Processed {len(data)} PDF files")
+        logger.debug(f"Processed {len(data)} PDF files")
+        logger.info("Done processing PDF files")
         return data
 
     @staticmethod
@@ -48,15 +57,26 @@ class DataProcessor:
                 text += page.extract_text() + "\n"
         return text
 
-    async def generate_vectors(self, items: dict, vector_property):
+    async def generate_vectors(self, items: list[dict], vector_property: str):
+        """
+        Generates embedding vectors for the content of each item in the provided list and adds them to the items.
+
+        :param items: A list of dictionaries where each dictionary represents an item containing text content to be embedded.
+        :param vector_property: The key under which the generated embedding vectors will be stored in each item dictionary.
+
+        :return: The list of items with the generated vectors added.
+        """
         for item in items:
-            vectorArray = await self.langchain_embeddings_generator.generate_embeddings(
-                item['content'])
+            vectorArray = await self.langchain_embeddings_generator.generate_embeddings(item['content'])
             item[vector_property] = vectorArray
         logger.info("Done generating vectors")
         return items
 
     async def insert_data(self, data):
+        """
+        Inserts a list of data items into a Cosmos DB collection.,
+        handling concurrent insertions to optimize performance.
+        """
         start_time = time.time()
         counter = 0
         tasks = []
