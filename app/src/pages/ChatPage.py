@@ -1,16 +1,15 @@
 import streamlit as st
+from src.services.chat import ChatCompletion
+from src.services.data_processor import DataProcessor
+from src.services.database import CosmosDB
+from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from streamlit_chat import message
-
-from ..services.chat import ChatCompletion
-from ..services.data_processor import DataProcessor
-from ..services.database import CosmosDB
-from ..services.embeddings import EmbeddingsGenerator
 
 
 class ChatPage:
     chat_history = []
     cosmos_db = CosmosDB()
-    embeddings_generator = EmbeddingsGenerator()
+    embeddings_generator = LangchainEmbeddingsGenerator()  # Change this line
     chat_completion = ChatCompletion(cosmos_db, embeddings_generator)
     data_processor = DataProcessor(cosmos_db, embeddings_generator)
 
@@ -20,9 +19,9 @@ class ChatPage:
     async def upload_files(self, folder_path):
         data = self.data_processor.process_pdfs(folder_path)
 
-
     def write(self):
-        message("Welcome to PaperMaid! Ask me anything about your research.", is_user=False)
+        message("Welcome to PaperMaid! Ask me anything about your research.",
+                is_user=False)
 
         if 'generated' not in st.session_state:
             st.session_state['generated'] = []
@@ -47,8 +46,11 @@ class ChatPage:
         """
         st.markdown(style, unsafe_allow_html=True)
 
-        uploaded_files = st.file_uploader("Upload files", type=["pdf"], accept_multiple_files=True, key="fileUploader", label_visibility="collapsed")
-        
+        uploaded_files = st.file_uploader("Upload files", type=["pdf"],
+                                          accept_multiple_files=True,
+                                          key="fileUploader",
+                                          label_visibility="collapsed")
+
         if uploaded_files:
             st.session_state['uploaded_files'] = uploaded_files
             # Process file tong nee
@@ -58,7 +60,8 @@ class ChatPage:
                 st.write(f"File size: {file.size} bytes")
                 st.write(f"File content: {file.getvalue()}")
 
-        user_input = st.text_input("Prompt here: ", key="input", label_visibility="collapsed")
+        user_input = st.text_input("Prompt here: ", key="input",
+                                   label_visibility="collapsed")
 
         if user_input:
             output = self.chat_completion.chat_completion(user_input)
@@ -69,6 +72,6 @@ class ChatPage:
 
         if st.session_state['generated']:
             for i in range(len(st.session_state['generated'])):
-                message(st.session_state['past'][i], is_user=True, key=str(i) + '_user')
+                message(st.session_state['past'][i], is_user=True,
+                        key=str(i) + '_user')
                 message(st.session_state["generated"][i], key=str(i))
-

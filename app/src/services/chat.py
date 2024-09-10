@@ -1,23 +1,24 @@
-import config
 import json
 import logging
-
 from typing import Any
+
+import config
 from openai import OpenAI
-
-from src.services.embeddings import EmbeddingsGenerator
 from src.services.database import CosmosDB
-
+from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 
 logger = logging.getLogger('papermaid')
 
+
 class ChatCompletion:
-    def __init__(self, cosmos_db: CosmosDB, embeddings_generator: EmbeddingsGenerator) -> None:
+    def __init__(self, cosmos_db: CosmosDB,
+                 embeddings_generator: LangchainEmbeddingsGenerator) -> None:
         self.client = OpenAI(api_key=config.OPENAI_KEY)
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
 
-    def vector_search(self, vectors: list[float], similarity_score=0.02, num_results=5) -> list[dict[str, Any]]:
+    def vector_search(self, vectors: list[float], similarity_score=0.02,
+                      num_results=5) -> list[dict[str, Any]]:
         """
         Search the Cosmos DB for the most similar vectors to the given vectors.
 
@@ -65,7 +66,9 @@ class ChatCompletion:
         logger.info("Done getting chat history")
         return list(results)
 
-    def generate_completion(self, user_prompt: str, vector_search_results: list, chat_history: list[dict]) -> dict[str, Any]:
+    def generate_completion(self, user_prompt: str,
+                            vector_search_results: list,
+                            chat_history: list[dict]) -> dict[str, Any]:
         """
         Get dictionary representation of the model.
 
@@ -102,19 +105,15 @@ class ChatCompletion:
         return response.model_dump()
 
     def chat_completion(self, user_input: str) -> str:
-        """
-        Complete the user input.
-
-        :param user_input: The user input to be completed.
-        :return: The completion of the user input.
-        """
-        logger.info("Starting completetion: %s", user_input)
-        user_embeddings = self.embeddings_generator.generate_embeddings(user_input)
+        logger.info("Starting completion: %s", user_input)
+        user_embeddings = self.embeddings_generator.generate_embeddings(
+            user_input)
         search_results = self.vector_search(user_embeddings)
         chat_history = self.get_chat_history(3)
         completions_results = self.generate_completion(user_input,
                                                        search_results,
                                                        chat_history)
-        completions_results = completions_results['choices'][0]['message']['content']
+        completions_results = completions_results['choices'][0]['message'][
+            'content']
         logger.info("Done generating completions: %s", completions_results)
         return completions_results
