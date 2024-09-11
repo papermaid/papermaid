@@ -10,7 +10,19 @@ logger = logging.getLogger("papermaid")
 
 
 class LangchainEmbeddingsGenerator:
+    """
+    Generates embeddings for text using OpenAI's embedding model via Langchain.
+
+    This class provides functionality for:
+    - Splitting text into chunks
+    - Generating embeddings for each chunk
+    - Calculating the average embedding for the entire text
+    """
+
     def __init__(self):
+        """
+        Initialize the LangchainEmbeddingsGenerator with OpenAI embeddings and text splitter.
+        """
         self.embeddings = OpenAIEmbeddings(openai_api_key=config.OPENAI_KEY)
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -19,6 +31,15 @@ class LangchainEmbeddingsGenerator:
         )
 
     async def generate_embeddings(self, text: str):
+        """
+        Generate embeddings for the given text.
+
+        This method splits the text into chunks, generates embeddings for each chunk,
+        and then calculates the average embedding.
+
+        :param text: The input text to generate embeddings for.
+        :return: The average embedding vector for the entire text.
+        """
         docs = [Document(page_content=text)]
         chunks = self.text_splitter.split_documents(docs)
         embeddings = []

@@ -4,19 +4,31 @@ from azure.cosmos import container, CosmosClient, PartitionKey, exceptions
 
 import config
 
-
 logger = logging.getLogger("papermaid")
 
 
 class CosmosDB:
+    """
+    Manages interactions with Azure Cosmos DB.
+
+    This class provides functionality for:
+    - Initializing a connection to Cosmos DB
+    - Creating and managing containers
+    - Upserting items into the database
+    - Querying items from the database
+    """
+
     def __init__(self):
+        """
+        Initialize the CosmosDB instance and set up the database and container.
+        """
         self.client = CosmosClient(url=config.COSMOS_CONN, credential=config.COSMOS_KEY)
         self.db = self.client.create_database_if_not_exists(config.COSMOS_DATABASE)
         self.container = self.create_container()
 
     def create_container(self) -> container.ContainerProxy | None:
         """
-        Create a Cosmos DB container.
+        Create a Cosmos DB container with specified indexing and vector embedding policies.
 
         :return: The created container proxy.
         :raises: CosmosHttpResponseError if the container cannot be created.
@@ -59,10 +71,10 @@ class CosmosDB:
 
     def upsert_item(self, item):
         """
-        Insert or update the specified item.
+        Insert or update the specified item in the Cosmos DB container.
 
-        If the item already exists in the container, it is replaced.
-        If the item does not already exist, it is inserted.
+        :param item: The item to be upserted.
+        :return: The response from the upsert operation.
         """
         return self.container.upsert_item(body=item)
 
@@ -74,11 +86,13 @@ class CosmosDB:
         populate_query_metrics=True,
     ):
         """
-        Return all results matching the given query.
+        Query items from the Cosmos DB container based on the provided query.
 
-        You can use any value for the container name in the FROM clause, but often the container name is used.
-        In the examples below, the container name is "products,"
-        and is aliased as "p" for easier referencing in the WHERE clause.
+        :param query: The SQL query string.
+        :param parameters: The parameters for the query.
+        :param enable_cross_partition_query: Whether to enable cross-partition query.
+        :param populate_query_metrics: Whether to populate query metrics.
+        :return: An iterable of query results.
         """
         return self.container.query_items(
             query=query,
