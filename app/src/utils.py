@@ -1,6 +1,7 @@
 import streamlit as st
 from abc import ABC, abstractmethod
 
+
 class Page(ABC):
     @abstractmethod
     def write(self):
@@ -17,5 +18,5 @@ def add_custom_css():
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
