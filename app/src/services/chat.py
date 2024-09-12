@@ -10,6 +10,7 @@ from openai import OpenAI
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from src.services.data_processor import DataProcessor
+from src.services.graph import KnownledgeGraphManager
 
 logger = logging.getLogger("papermaid")
 
@@ -31,12 +32,14 @@ class ChatCompletion:
         cosmos_db: CosmosDB,
         embeddings_generator: LangchainEmbeddingsGenerator,
         data_processor: DataProcessor,
+        knownledge_graph_manager: KnownledgeGraphManager,
     ) -> None:
         """Initialize the ChatCompletion instance with necessary services."""
         self.client = OpenAI(api_key=config.OPENAI_KEY)
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
         self.data_processor = data_processor
+        self.knownledge_graph_manager = knownledge_graph_manager
 
     def vector_search(
         self, vectors: list[float], similarity_score=0.02, num_results=5
@@ -139,7 +142,7 @@ class ChatCompletion:
         logger.debug("Done generating completions in generate_completion")
         return response.model_dump()
 
-    async def chat_completion(self, user_input: str) -> str:
+    async def chat_completion(self, user_input: str, use_graph = False) -> str:
         """Generate a chat completion based on user input."""
         logger.info("Starting completion: %s", user_input)
         user_embeddings = await self.embeddings_generator.generate_embeddings(
@@ -147,6 +150,10 @@ class ChatCompletion:
         )
         search_results = self.vector_search(user_embeddings)
         chat_history = self.get_chat_history(3)
+        if use_graph:
+            addition_relation_info = self.knownledge_graph_manager.retriever(user_input)
+            user_input += addition_relation_info
+            logger.info("Added graph search results: %s", addition_relation_info)
         completions_results = self.generate_completion(
             user_input, search_results, chat_history
         )
@@ -165,4 +172,5 @@ class ChatCompletion:
             data_with_vectors = await self.data_processor.generate_vectors(
                 data, vector_property
             )
+            # self.knownledge_graph_manager.construct_graph(file_path)
             await self.data_processor.insert_data(data_with_vectors)
