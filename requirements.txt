@@ -12,3 +12,8 @@ PyPDF2
 langchain-community
 tiktoken
 langchain-openai
+neo4j
+langchain-experimental
+pyvis
+pypdf
+networkx
