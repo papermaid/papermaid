@@ -25,7 +25,6 @@ class Entities(BaseModel):
         description="Key terms, concepts, theories, or methodologies discussed in the research paper",
     )
 
-
 class KnownledgeGraphManager:
     def __init__(self, data_processor: DataProcessor):
         self.graph = Neo4jGraph(config.NEO4J_URl, config.NEO4J_USERNAME, config.NEO4J_PASSWORD)
@@ -39,6 +38,7 @@ class KnownledgeGraphManager:
                                                             embedding_node_property="embedding"
                                                             )
         self.data_processor = data_processor
+        self.__graph_data = {"nodes": set(), "edges": []}  
 
     def construct_graph(self, file_path: str):
         """Construct a knowledge graph from a pdf file."""
@@ -55,60 +55,60 @@ class KnownledgeGraphManager:
         except Exception as e:
             logger.error(f"Error constructing graph: {str(e)}")
 
-    def save_graph(self) -> bool:
-        try:
-            logger.info("Saving graph...")
-            cypher = "MATCH (s)-[r:!MENTIONS]->(t) RETURN s,r,t LIMIT 50"
-            results = self.driver.session().run(cypher)
+    # def save_graph(self) -> bool:
+    #     try:
+    #         logger.info("Saving graph...")
+    #         cypher = "MATCH (s)-[r:!MENTIONS]->(t) RETURN s,r,t LIMIT 50"
+    #         results = self.driver.session().run(cypher)
 
-            G = nx.MultiDiGraph()
-            for record in results:
-                source = record["s"]
-                target = record["t"]
-                rel = record["r"]
+    #         G = nx.MultiDiGraph()
+    #         for record in results:
+    #             source = record["s"]
+    #             target = record["t"]
+    #             rel = record["r"]
 
-                # node properties + edge type as label
-                source_label = str(dict(source)["id"])
-                target_label = str(dict(target)["id"])
+    #             # node properties + edge type as label
+    #             source_label = str(dict(source)["id"])
+    #             target_label = str(dict(target)["id"])
                 
-                G.add_node(source.element_id, 
-                        label=source_label,
-                        title=f"Properties: {dict(source)}",
-                        size=30,  # Node size
-                        font={'size': 16, 'color': 'white'})
-                G.add_node(target.element_id, 
-                        label=target_label,
-                        title=f"Properties: {dict(target)}",
-                        size=30,  # Node size
-                        font={'size': 16, 'color': 'white'})
-                G.add_edge(source.element_id, target.element_id, 
-                        title=f"Type: {rel.type}",
-                        label=rel.type,
-                        width=1,
-                        color='#aaaaaa')
+    #             G.add_node(source.element_id, 
+    #                     label=source_label,
+    #                     title=f"Properties: {dict(source)}",
+    #                     size=30,  # Node size
+    #                     font={'size': 16, 'color': 'white'})
+    #             G.add_node(target.element_id, 
+    #                     label=target_label,
+    #                     title=f"Properties: {dict(target)}",
+    #                     size=30,  # Node size
+    #                     font={'size': 16, 'color': 'white'})
+    #             G.add_edge(source.element_id, target.element_id, 
+    #                     title=f"Type: {rel.type}",
+    #                     label=rel.type,
+    #                     width=1,
+    #                     color='#aaaaaa')
 
-                nt = Network(height='750px', width='100%', directed=True, bgcolor="#222222", font_color="white")
-                nt.from_nx(G)
+    #             nt = Network(height='750px', width='100%', directed=True, bgcolor="#222222", font_color="white")
+    #             nt.from_nx(G)
 
-                # Appearance
-                for node in nt.nodes:
-                    node['font'] = {'size': 16, 'color': 'white'}
-                    node['borderWidth'] = 2
-                    node['color'] = '#1f78b4'
+    #             # Appearance
+    #             for node in nt.nodes:
+    #                 node['font'] = {'size': 16, 'color': 'white'}
+    #                 node['borderWidth'] = 2
+    #                 node['color'] = '#1f78b4'
 
-                for edge in nt.edges:
-                    edge['font'] = {'size': 14, 'color': 'lightgrey'}
-                    edge['width'] = 2
+    #             for edge in nt.edges:
+    #                 edge['font'] = {'size': 14, 'color': 'lightgrey'}
+    #                 edge['width'] = 2
 
-                nt.force_atlas_2based()
-                output_file = 'nx.html'
-                # nt.show(output_file, notebook=False)
-                nt.save_graph(output_file)
-                logger.info(f"Graph saved to {output_file}")
-                return True
-        except Exception as e:
-            logger.error(f"Error saving graph: {str(e)}")
-            return False
+    #             nt.force_atlas_2based()
+    #             output_file = 'nx.html'
+    #             # nt.show(output_file, notebook=False)
+    #             nt.save_graph(output_file)
+    #             logger.info(f"Graph saved to {output_file}")
+    #             return True
+    #     except Exception as e:
+    #         logger.error(f"Error saving graph: {str(e)}")
+    #         return False
         # with open(output_file, 'r') as f:
         #     graph_html = f.read()
         # html(graph_html, height=750)
@@ -130,6 +130,22 @@ class KnownledgeGraphManager:
             full_text_query += f" {word}~2 AND"
         full_text_query += f" {words[-1]}~2"
         return full_text_query.strip()
+
+    def __parse_relationship(self, output: str) -> tuple[str, str, str] | tuple[None, None, None]:
+        """
+        Parses the output string into source node, relationship, and target node.
+
+        Example format: 'Luce - APPLIED_TO -> Toronto Real Estate Market'
+
+        :param output: The relationship string in the given format.
+        :return: A tuple (source_node, relationship, target_node)
+        """
+        try:
+            source_node, relationship, target_node = output.split(" - ")[0], output.split(" - ")[1].split(" -> ")[0], output.split(" -> ")[1]
+            return source_node.strip(), relationship.strip(), target_node.strip()
+        except ValueError as e:
+            logger.error(f"Error parsing relationship: {e}")
+            return None, None, None
 
     def structured_retriever(self, question: str):
         """Extract key entities from a given question."""
@@ -167,9 +183,55 @@ class KnownledgeGraphManager:
                 {"query": self.__generate_full_text_query(entity)},
             )
             result += "\n".join([el['output'] for el in response])
+
+            for el in response:
+                output = el['output']  # 'node1 - relationship -> node2'
+                node1, rel, node2 = self.__parse_relationship(output)
+                self.__graph_data["nodes"].add(node1)
+                self.__graph_data["nodes"].add(node2)
+                self.__graph_data["edges"].append((node1, rel, node2))
+
         logger.info("Finish retrieval of structured data")
         return result
-    
+
+    def save_graph(self) -> bool:
+        """
+        Save the graph using pyvis based on the parsed __graph_data structure.
+
+        :param graph_data: Dictionary containing 'nodes' and 'edges'.
+        :return: True if the graph is saved successfully.
+        """
+        try:
+            logger.info("Saving graph...")
+            G = nx.MultiDiGraph()
+
+            for source, rel, target in self.__graph_data["edges"]:
+                G.add_node(source, label=source, size=30, font={'size': 16, 'color': 'white'})
+                G.add_node(target, label=target, size=30, font={'size': 16, 'color': 'white'})
+                G.add_edge(source, target, label=rel, title=f"Type: {rel}", color='#aaaaaa', width=1)
+
+            nt = Network(height='750px', width='100%', directed=True, bgcolor="#222222", font_color="white")
+            nt.from_nx(G)
+
+            for node in nt.nodes:
+                node['font'] = {'size': 16, 'color': 'white'}
+                node['borderWidth'] = 2
+                node['color'] = '#1f78b4'
+
+            for edge in nt.edges:
+                edge['font'] = {'size': 14, 'color': 'lightgrey'}
+                edge['width'] = 2
+
+            nt.force_atlas_2based()
+            output_file = 'nx.html'
+            nt.save_graph(output_file)
+            logger.info(f"Graph saved as {output_file}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving graph: {str(e)}")
+            return False
+
+
     def retriever(self, question: str):
         """Retrieve information from the structured and unstructured data sources."""
         print(f"Search query: {question}")
