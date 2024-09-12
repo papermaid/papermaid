@@ -2,12 +2,17 @@ import asyncio
 import logging
 import os
 import time
+from typing import List
 import uuid
 
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+
+from langchain_core.documents import Document
+from langchain_community.document_loaders import PyPDFLoader
+
 
 logger = logging.getLogger("papermaid")
 
@@ -155,3 +160,14 @@ class DataProcessor:
         logger.debug(
             f"Time taken: {duration:.2f} seconds ({duration:.3f} milliseconds)"
         )
+
+    def pdf_to_document(self, file_path: str) -> list[Document]:
+        """
+        Convert a PDF files to a Langchain Document.
+
+        :param file_path: The path to the PDF file.
+        :return: A Langchain Document object.
+        """
+        loader = PyPDFLoader(file_path)
+        pages: List[Document] = loader.load_and_split()
+        return pages
