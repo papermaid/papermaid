@@ -38,6 +38,35 @@ class ChatCompletion:
         self.embeddings_generator = embeddings_generator
         self.data_processor = data_processor
 
+    async def process_and_store_file(self, file):
+        """Process and store an uploaded file for future reference."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = os.path.join(temp_dir, file.name)
+            with open(file_path, "wb") as f:
+                f.write(file.getvalue())
+            data = await self.data_processor.process_pdfs(temp_dir)
+            vector_property = "vector"
+            data_with_vectors = await self.data_processor.generate_vectors(
+                data, vector_property
+            )
+            await self.data_processor.insert_data(data_with_vectors)
+
+    async def chat_completion(self, user_input: str) -> str:
+        """Generate a chat completion based on user input."""
+        logger.info("Starting completion: %s", user_input)
+        user_embeddings = await self.embeddings_generator.generate_embeddings(
+            user_input
+        )
+        search_results = self.vector_search(user_embeddings)
+        chat_history = self.get_chat_history(3)
+        completions_results = self.generate_completion(
+            user_input, search_results, chat_history
+        )
+        completions_results = completions_results["choices"][0]["message"]["content"]
+        logger.info("Done generating completions: %s", completions_results)
+        return completions_results
+
+
     def vector_search(
         self, vectors: list[float], similarity_score=0.02, num_results=5
     ) -> list[dict[str, Any]]:
@@ -51,11 +80,11 @@ class ChatCompletion:
         """
         results = self.cosmos_db.query_items(
             query="""
-    SELECT TOP @num_results c.overview, VectorDistance(c.vector, @embedding) as SimilarityScore 
-    FROM c
-    WHERE VectorDistance(c.vector, @embedding) > @similarity_score
-    ORDER BY VectorDistance(c.vector, @embedding)
-    """,
+          SELECT TOP @num_results c.filename, c.content, VectorDistance(c.vector, @embedding) as SimilarityScore 
+          FROM c
+          WHERE VectorDistance(c.vector, @embedding) > @similarity_score
+          ORDER BY VectorDistance(c.vector, @embedding)
+          """,
             parameters=[
                 {"name": "@embedding", "value": vectors},
                 {"name": "@num_results", "value": num_results},
@@ -68,6 +97,7 @@ class ChatCompletion:
             for result in results
         ]
         return formatted_results
+
 
     def get_chat_history(self, completions=3) -> list:
         """Retrieve the most recent chat history from Cosmos DB."""
@@ -122,12 +152,12 @@ class ChatCompletion:
             ]
         )
         messages.append({"role": "user", "content": user_prompt})
-        messages.extend(
-            [
-                {"role": "system", "content": json.dumps(result["document"])}
-                for result in vector_search_results
-            ]
-        )
+
+        context = "Relevant information from uploaded files:\n"
+        for result in vector_search_results:
+            context += f"File: {result['document']['filename']}\n"
+            context += f"Content: {result['document']['content'][:500]}...\n\n"
+        messages.append({"role": "system", "content": context})
 
         logger.debug("Messages going to OpenAI: %s", messages)
 
@@ -139,30 +169,3 @@ class ChatCompletion:
         logger.debug("Done generating completions in generate_completion")
         return response.model_dump()
 
-    async def chat_completion(self, user_input: str) -> str:
-        """Generate a chat completion based on user input."""
-        logger.info("Starting completion: %s", user_input)
-        user_embeddings = await self.embeddings_generator.generate_embeddings(
-            user_input
-        )
-        search_results = self.vector_search(user_embeddings)
-        chat_history = self.get_chat_history(3)
-        completions_results = self.generate_completion(
-            user_input, search_results, chat_history
-        )
-        completions_results = completions_results["choices"][0]["message"]["content"]
-        logger.info("Done generating completions: %s", completions_results)
-        return completions_results
-
-    async def process_and_store_file(self, file):
-        """Process and store an uploaded file for future reference."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            file_path = os.path.join(temp_dir, file.name)
-            with open(file_path, "wb") as f:
-                f.write(file.getvalue())
-            data = await self.data_processor.process_pdfs(temp_dir)
-            vector_property = "vector"
-            data_with_vectors = await self.data_processor.generate_vectors(
-                data, vector_property
-            )
-            await self.data_processor.insert_data(data_with_vectors)
