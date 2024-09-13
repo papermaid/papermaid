@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from typing import List
 import uuid
 
 import tiktoken
@@ -9,6 +10,11 @@ from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+import config
+
+from langchain_core.documents import Document
+from langchain_community.document_loaders import PyPDFLoader
+
 
 logger = logging.getLogger("papermaid")
 
@@ -38,7 +44,7 @@ class DataProcessor:
         """
         self.cosmos_db = cosmos_db
         self.langchain_embeddings_generator = langchain_embeddings_generator
-        self.tokenizer = tiktoken.encoding_for_model("gpt-3.5-turbo-16k")
+        self.tokenizer = tiktoken.encoding_for_model(config.OPENAI_16k_MODEL)
 
     async def process_pdfs(self, folder_path: str) -> list[dict]:
         """
@@ -185,3 +191,14 @@ class DataProcessor:
             chunks.append("\n".join(current_chunk))
 
         return chunks
+
+    def pdf_to_document(self, file_path: str) -> list[Document]:
+        """
+        Convert a PDF files to a Langchain Document.
+
+        :param file_path: The path to the PDF file.
+        :return: A Langchain Document object.
+        """
+        loader = PyPDFLoader(file_path)
+        pages: List[Document] = loader.load_and_split()
+        return pages

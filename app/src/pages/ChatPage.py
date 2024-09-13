@@ -5,7 +5,9 @@ import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
+from src.services.graph import KnownledgeGraphManager
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+from streamlit.components.v1 import html
 from streamlit_chat import message
 
 logger = logging.getLogger("papermaid")
@@ -28,9 +30,13 @@ class ChatPage:
         """
         self.cosmos_db = CosmosDB()
         self.embeddings_generator = LangchainEmbeddingsGenerator()
-        self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
+        self.data_processor = DataProcessor(self.cosmos_db,
+                                            self.embeddings_generator)
+        self.knownledge_graph_manager = KnownledgeGraphManager(
+            self.data_processor)  # Added this line
         self.chat_completion = ChatCompletion(
-            self.cosmos_db, self.embeddings_generator, self.data_processor
+            self.cosmos_db, self.embeddings_generator, self.data_processor,
+            self.knownledge_graph_manager  # Added knownledge_graph_manager
         )
 
         if "generated" not in st.session_state:
@@ -70,6 +76,11 @@ class ChatPage:
             st.session_state["generated"].append(output)
             st.session_state["user_input"] = ""
 
+            if self.knownledge_graph_manager.save_graph():
+                with open('nx.html', 'r') as f:
+                    graph_html = f.read()
+                    html(graph_html, height=750)
+
     def write(self):
         """
         Render the chat interface and handle user interactions.
@@ -77,11 +88,12 @@ class ChatPage:
         st.title("PaperMaid Chat")
 
         message(
-            "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
+            "Welcome to PaperMaid! Ask me anything about your research.",
+            is_user=False
         )
 
         style = f"""
-      """
+    """
         st.markdown(style, unsafe_allow_html=True)
 
         uploaded_files = st.file_uploader(
@@ -110,7 +122,8 @@ class ChatPage:
                 message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
-        st.text_input("Ask a question:", key="user_input", on_change=self.handle_input)
+        st.text_input("Ask a question:", key="user_input",
+                      on_change=self.handle_input)
 
 
 def main():

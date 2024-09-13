@@ -9,6 +9,7 @@ from openai import OpenAI
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from src.services.data_processor import DataProcessor
+from src.services.graph import KnownledgeGraphManager
 
 logger = logging.getLogger("papermaid")
 
@@ -30,6 +31,7 @@ class ChatCompletion:
         cosmos_db: CosmosDB,
         embeddings_generator: LangchainEmbeddingsGenerator,
         data_processor: DataProcessor,
+        knownledge_graph_manager: KnownledgeGraphManager,
     ) -> None:
         """
         Initialize the ChatCompletion with necessary services.
@@ -42,6 +44,7 @@ class ChatCompletion:
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
         self.data_processor = data_processor
+        self.knownledge_graph_manager = knownledge_graph_manager
 
     async def process_file(self, file):
         """
