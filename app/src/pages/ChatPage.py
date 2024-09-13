@@ -36,13 +36,20 @@ class ChatPage:
         """Initialize the ChatPage instance."""
         pass
 
-    def write(self):
+    def write(self, openai_model, use_graph) -> None:
         """
         Render the chat interface and handle user interactions.
 
         This method sets up the Streamlit interface, manages file uploads,
         processes user input, generates responses, and displays the chat history.
         """
+        # DEBUG
+        # st.text(openai_model)
+        # if use_graph:
+        #     st.text("Using graph")
+        # else:
+        #     st.text("Not using graph")
+        # DEBUG
         message(
             "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
         )
@@ -89,7 +96,7 @@ class ChatPage:
             st.session_state.generated.append(output)
 
             if self.knownledge_graph_manager.save_graph():
-                with open('nx.html', 'r') as f:
+                with open(self.knownledge_graph_manager.GRAPH_OUTPUT_FILENAME, 'r') as f:
                     graph_html = f.read()
                     html(graph_html, height=750)
 

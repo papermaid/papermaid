@@ -26,9 +26,11 @@ class Entities(BaseModel):
     )
 
 class KnownledgeGraphManager:
+    GRAPH_OUTPUT_FILENAME = "nx.html"
+
     def __init__(self, data_processor: DataProcessor):
-        self.graph = Neo4jGraph(config.NEO4J_URl, config.NEO4J_USERNAME, config.NEO4J_PASSWORD)
-        self.driver: Driver = GraphDatabase.driver(config.NEO4J_URl, auth=(config.NEO4J_USERNAME, config.NEO4J_PASSWORD))
+        self.graph = Neo4jGraph(url=config.NEO4J_URL, username=config.NEO4J_USERNAME, password=config.NEO4J_PASSWORD)
+        self.driver: Driver = GraphDatabase.driver(uri=config.NEO4J_URL, auth=(config.NEO4J_USERNAME, config.NEO4J_PASSWORD))
         self.llm = ChatOpenAI(temperature=0, model_name="gpt-4o", api_key=config.OPENAI_KEY)
         self.llm_transformer = LLMGraphTransformer(llm=self.llm)
         self.vector_index: Neo4jVector = Neo4jVector.from_existing_graph(OpenAIEmbeddings(api_key=config.OPENAI_KEY),
@@ -223,9 +225,8 @@ class KnownledgeGraphManager:
                 edge['width'] = 2
 
             nt.force_atlas_2based()
-            output_file = 'nx.html'
-            nt.save_graph(output_file)
-            logger.info(f"Graph saved as {output_file}")
+            nt.save_graph(self.GRAPH_OUTPUT_FILENAME)
+            logger.info(f"Graph saved as {self.GRAPH_OUTPUT_FILENAME}")
             return True
         except Exception as e:
             logger.error(f"Error saving graph: {str(e)}")
