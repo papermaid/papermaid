@@ -24,6 +24,6 @@ OPENAI_COMPLETIONS_DEPLOYMENT = os.getenv('openai_completions_deployment')
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 
 # Neo4j configuration
-NEO4J_URl = os.getenv('neo4j_urL')
+NEO4J_URL = os.getenv('neo4j_urL')
 NEO4J_USERNAME = os.getenv('neo4j_username')
 NEO4J_PASSWORD = os.getenv('neo4j_password')
