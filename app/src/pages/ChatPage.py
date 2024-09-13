@@ -17,8 +17,7 @@ class ChatPage:
     cosmos_db = CosmosDB()
     embeddings_generator = LangchainEmbeddingsGenerator()
     data_processor = DataProcessor(cosmos_db, embeddings_generator)
-    chat_completion = ChatCompletion(cosmos_db, embeddings_generator,
-                                     data_processor)
+    chat_completion = ChatCompletion(cosmos_db, embeddings_generator, data_processor)
 
     def __init__(self):
         if "generated" not in st.session_state:
@@ -54,8 +53,7 @@ class ChatPage:
         st.title("PaperMaid Chat")
 
         message(
-            "Welcome to PaperMaid! Ask me anything about your research.",
-            is_user=False
+            "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
         )
 
         style = f"""
@@ -83,17 +81,12 @@ class ChatPage:
                 st.session_state["processed_files"].extend(new_files)
                 st.success(f"Successfully processed {len(new_files)} file(s)")
 
-        # Display chat history
         if st.session_state["generated"]:
             for i in range(len(st.session_state["generated"])):
-                message(st.session_state["past"][i], is_user=True,
-                        key=str(i) + "_user")
+                message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
-        # Get user input
-        st.text_input(
-            "Ask a question:", key="user_input", on_change=self.handle_input
-        )
+        st.text_input("Ask a question:", key="user_input", on_change=self.handle_input)
 
 
 def main():

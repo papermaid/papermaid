@@ -91,7 +91,7 @@ class ChatCompletion:
 
         combined_input = f"{user_input}\n\nSummarized File Contents:\n"
         for i, summary in enumerate(summarized_contents, 1):
-            combined_input += f"File {i} Summary:\n{summary}\n\n"
+            combined_input += f"(Title).\nSummary:\n{summary}\n\n"
 
         user_embeddings = await self.embeddings_generator.generate_embeddings(
             combined_input
@@ -106,7 +106,7 @@ class ChatCompletion:
         return completions_results
 
     def vector_search(
-        self, vectors: list[float], similarity_score=0.02, num_results=5
+        self, vectors: list[float], similarity_score=0.8, num_results=3
     ) -> list[dict[str, Any]]:
         results = self.cosmos_db.query_items(
             query="""
