@@ -5,8 +5,11 @@ import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
+from src.services.graph import KnownledgeGraphManager
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from streamlit_chat import message
+from streamlit.components.v1 import html
+
 
 logger = logging.getLogger("papermaid")
 
@@ -26,7 +29,8 @@ class ChatPage:
     cosmos_db = CosmosDB()
     embeddings_generator = LangchainEmbeddingsGenerator()
     data_processor = DataProcessor(cosmos_db, embeddings_generator)
-    chat_completion = ChatCompletion(cosmos_db, embeddings_generator, data_processor)
+    knownledge_graph_manager = KnownledgeGraphManager(data_processor)
+    chat_completion = ChatCompletion(cosmos_db, embeddings_generator, data_processor, knownledge_graph_manager)
 
     def __init__(self):
         """Initialize the ChatPage instance."""
@@ -79,10 +83,15 @@ class ChatPage:
             "Prompt here: ", key="input", label_visibility="collapsed"
         )
         if user_input:
-            output = asyncio.run(self.chat_completion.chat_completion(user_input))
+            output = asyncio.run(self.chat_completion.chat_completion(user_input, True))
 
             st.session_state.past.append(user_input)
             st.session_state.generated.append(output)
+
+            if self.knownledge_graph_manager.save_graph():
+                with open('nx.html', 'r') as f:
+                    graph_html = f.read()
+                    html(graph_html, height=750)
 
         if st.session_state["generated"]:
             for i in range(len(st.session_state["generated"])):
