@@ -5,9 +5,9 @@ import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
-from src.services.graph import KnownledgeGraphManager
+from src.services.graph import KnownledgeGraphManager  # Added this import
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
-from streamlit.components.v1 import html
+from streamlit.components.v1 import html  # Added this import
 from streamlit_chat import message
 
 logger = logging.getLogger("papermaid")
@@ -119,7 +119,8 @@ class ChatPage:
 
         if st.session_state["generated"]:
             for i in range(len(st.session_state["generated"])):
-                message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
+                message(st.session_state["past"][i], is_user=True,
+                        key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
         st.text_input("Ask a question:", key="user_input",

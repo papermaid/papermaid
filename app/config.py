@@ -26,6 +26,6 @@ OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_16k_MODEL = "gpt-3.5-turbo-16k"
 
 # Neo4j configuration
-NEO4J_URl = os.getenv('neo4j_urL')
+NEO4J_URL = os.getenv('neo4j_url')
 NEO4J_USERNAME = os.getenv('neo4j_username')
 NEO4J_PASSWORD = os.getenv('neo4j_password')
