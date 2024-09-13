@@ -12,6 +12,7 @@ COSMOS_DATABASE = os.getenv('cosmos_database_name')
 COSMOS_COLLECTION = os.getenv('cosmos_collection_name')
 COSMOS_VECTOR_PROPERTY = os.getenv('cosmos_vector_property_name')
 
+
 # OpenAI configuration
 OPENAI_ENDPOINT = os.getenv('openai_endpoint')
 OPENAI_KEY = os.getenv('openai_key')
@@ -22,3 +23,4 @@ OPENAI_COMPLETIONS_DEPLOYMENT = os.getenv('openai_completions_deployment')
 
 # Model configuration
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
+OPENAI_16k_MODEL = "gpt-3.5-turbo-16k"
