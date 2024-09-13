@@ -1,25 +1,38 @@
 import asyncio
 import logging
 
+import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+from streamlit_chat import message
 
 logger = logging.getLogger("papermaid")
 
-import streamlit as st
-from streamlit_chat import message
-
 
 class ChatPage:
-    chat_history = []
-    cosmos_db = CosmosDB()
-    embeddings_generator = LangchainEmbeddingsGenerator()
-    data_processor = DataProcessor(cosmos_db, embeddings_generator)
-    chat_completion = ChatCompletion(cosmos_db, embeddings_generator, data_processor)
+    """
+    Manages the chat interface and user interactions.
+
+    This class provides functionality for:
+    - Initializing and managing the chat session state
+    - Processing uploaded files
+    - Handling user input and generating responses
+    - Rendering the chat interface
+    """
 
     def __init__(self):
+        """
+        Initialize the ChatPage with necessary services and session state.
+        """
+        self.cosmos_db = CosmosDB()
+        self.embeddings_generator = LangchainEmbeddingsGenerator()
+        self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
+        self.chat_completion = ChatCompletion(
+            self.cosmos_db, self.embeddings_generator, self.data_processor
+        )
+
         if "generated" not in st.session_state:
             st.session_state["generated"] = []
         if "past" not in st.session_state:
@@ -32,11 +45,19 @@ class ChatPage:
             st.session_state["user_input"] = ""
 
     async def process_files(self, files):
-        """Process multiple files and return their contents as chunks."""
+        """
+        Process multiple files and return their contents as chunks.
+
+        :param files: A list of uploaded file objects.
+        :return: A list of processed file contents.
+        """
         tasks = [self.chat_completion.process_file(file) for file in files]
         return await asyncio.gather(*tasks)
 
     def handle_input(self):
+        """
+        Handle user input, generate a response, and update the chat history.
+        """
         if st.session_state["user_input"]:
             user_input = st.session_state["user_input"]
             output = asyncio.run(
@@ -50,6 +71,9 @@ class ChatPage:
             st.session_state["user_input"] = ""
 
     def write(self):
+        """
+        Render the chat interface and handle user interactions.
+        """
         st.title("PaperMaid Chat")
 
         message(
