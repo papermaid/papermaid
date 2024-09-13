@@ -49,7 +49,7 @@ class BingSearchClient:
           print()
 
 def main():
-  search_term = "What is RAG?"
+  search_term = "What is RAG?" # query user
   
   client = BingSearchClient()
   results = client.search(search_term)
