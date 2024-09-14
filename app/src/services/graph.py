@@ -9,6 +9,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.document_loaders import WikipediaLoader
+from langchain.text_splitter import TokenTextSplitter
+
 from neo4j import Driver, GraphDatabase
 from pyvis.network import Network
 from src.services.data_processor import DataProcessor
@@ -31,7 +34,6 @@ class KnowledgeGraphManager:
     GRAPH_OUTPUT_FILENAME = "nx.html"
 
     def __init__(self, data_processor: DataProcessor):
-        logger.debug("LOGGG: ", config.NEO4J_URL)
         self.graph = Neo4jGraph(
             url=config.NEO4J_URL,
             username=config.NEO4J_USERNAME,
@@ -45,15 +47,15 @@ class KnowledgeGraphManager:
         )
         self.llm_transformer = LLMGraphTransformer(llm=self.llm)
         self.vector_index: Neo4jVector = Neo4jVector.from_existing_graph(
-            OpenAIEmbeddings(api_key=config.OPENAI_KEY),
-            url=config.NEO4J_URL,
-            username=config.NEO4J_USERNAME,
-            password=config.NEO4J_PASSWORD,
-            search_type="hybrid",
-            node_label="Document",
-            text_node_properties=["text"],
-            embedding_node_property="embedding",
-        )
+                                                            OpenAIEmbeddings(api_key=config.OPENAI_KEY),
+                                                            search_type="hybrid",
+                                                            node_label="Document",
+                                                            text_node_properties=["text"],
+                                                            embedding_node_property="embedding",
+                                                            url=config.NEO4J_URL,
+                                                            username=config.NEO4J_USERNAME,
+                                                            password=config.NEO4J_PASSWORD,
+                                                            )
         self.data_processor = data_processor
         self.__graph_data = {"nodes": set(), "edges": []}
 
@@ -62,7 +64,9 @@ class KnowledgeGraphManager:
         try:
             logger.info(f"Constructing graph")
             documents = self.data_processor.pdf_to_document(file_path)
+            logger.debug(f"Documents loaded")
             graph_documents = self.llm_transformer.convert_to_graph_documents(documents)
+            logger.debug(f"Graph documents converted")
             self.graph.add_graph_documents(
                 graph_documents,
                 baseEntityLabel=True,
@@ -72,63 +76,28 @@ class KnowledgeGraphManager:
         except Exception as e:
             logger.error(f"Error constructing graph: {str(e)}")
 
-    # def save_graph(self) -> bool:
-    #     try:
-    #         logger.info("Saving graph...")
-    #         cypher = "MATCH (s)-[r:!MENTIONS]->(t) RETURN s,r,t LIMIT 50"
-    #         results = self.driver.session().run(cypher)
 
-    #         G = nx.MultiDiGraph()
-    #         for record in results:
-    #             source = record["s"]
-    #             target = record["t"]
-    #             rel = record["r"]
+    async def construct_graph_from_topic(self, topic: str) -> bool:
+        """Construct a knowledge graph from a given topic."""
+        try:
+            logger.info(f"Constructing graph from topic: {topic}")
+            raw_documents = WikipediaLoader(query=topic).load()
+            text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=24)
+            documents = text_splitter.split_documents(raw_documents[:3])
 
-    #             # node properties + edge type as label
-    #             source_label = str(dict(source)["id"])
-    #             target_label = str(dict(target)["id"])
-
-    #             G.add_node(source.element_id,
-    #                     label=source_label,
-    #                     title=f"Properties: {dict(source)}",
-    #                     size=30,  # Node size
-    #                     font={'size': 16, 'color': 'white'})
-    #             G.add_node(target.element_id,
-    #                     label=target_label,
-    #                     title=f"Properties: {dict(target)}",
-    #                     size=30,  # Node size
-    #                     font={'size': 16, 'color': 'white'})
-    #             G.add_edge(source.element_id, target.element_id,
-    #                     title=f"Type: {rel.type}",
-    #                     label=rel.type,
-    #                     width=1,
-    #                     color='#aaaaaa')
-
-    #             nt = Network(height='750px', width='100%', directed=True, bgcolor="#222222", font_color="white")
-    #             nt.from_nx(G)
-
-    #             # Appearance
-    #             for node in nt.nodes:
-    #                 node['font'] = {'size': 16, 'color': 'white'}
-    #                 node['borderWidth'] = 2
-    #                 node['color'] = '#1f78b4'
-
-    #             for edge in nt.edges:
-    #                 edge['font'] = {'size': 14, 'color': 'lightgrey'}
-    #                 edge['width'] = 2
-
-    #             nt.force_atlas_2based()
-    #             output_file = 'nx.html'
-    #             # nt.show(output_file, notebook=False)
-    #             nt.save_graph(output_file)
-    #             logger.info(f"Graph saved to {output_file}")
-    #             return True
-    #     except Exception as e:
-    #         logger.error(f"Error saving graph: {str(e)}")
-    #         return False
-    # with open(output_file, 'r') as f:
-    #     graph_html = f.read()
-    # html(graph_html, height=750)
+            llm=ChatOpenAI(temperature=0, model_name=config.OPENAI_16k_MODEL, api_key=config.OPENAI_KEY)
+            llm_transformer = LLMGraphTransformer(llm=llm)
+            graph_documents = llm_transformer.convert_to_graph_documents(documents)
+            self.graph.add_graph_documents(
+                graph_documents,
+                baseEntityLabel=True,
+                include_source=True
+            )
+            logger.info(f"Graph constructed from topic: {topic}")
+            return True
+        except Exception as e:
+            logger.error(f"Error constructing graph from topic: {str(e)}")
+            return False
 
     def __generate_full_text_query(self, input: str) -> str:
         """
