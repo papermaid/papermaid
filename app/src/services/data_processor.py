@@ -201,8 +201,7 @@ class DataProcessor:
         :return: A list of Langchain Document objects.
         """
         try:
-            with tempfile.NamedTemporaryFile(delete=False,
-                                             suffix=".pdf") as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                 temp_file.write(uploaded_file.getvalue())
                 temp_file_path = temp_file.name
 
@@ -213,6 +212,5 @@ class DataProcessor:
 
             return pages
         except Exception as e:
-            logger.error(
-                f"Error processing PDF file {uploaded_file.name}: {str(e)}")
+            logger.error(f"Error processing PDF file {uploaded_file.name}: {str(e)}")
             return []
