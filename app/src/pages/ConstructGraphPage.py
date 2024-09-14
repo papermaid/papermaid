@@ -19,10 +19,6 @@ class ConstructGraphPage:
         self.knowledge_graph_manager = KnowledgeGraphManager(
             self.data_processor)
 
-        if "file_contents" not in st.session_state:
-            st.session_state["file_contents"] = []
-        if "file_contents" not in st.session_state:
-            st.session_state["file_contents"] = []
         if "processed_files" not in st.session_state:
             st.session_state["processed_files"] = []
         if "user_input" not in st.session_state:
@@ -76,8 +72,7 @@ class ConstructGraphPage:
             ]
             if new_files:
                 st.write(f"Processing {len(new_files)} new file(s)...")
-                new_contents = asyncio.run(self.process_files(new_files))
-                st.session_state["file_contents"].extend(new_contents)
+                asyncio.run(self.process_files(new_files))
                 st.session_state["processed_files"].extend(new_files)
                 st.success(f"Successfully processed {len(new_files)} file(s)")
 

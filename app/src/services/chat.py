@@ -224,6 +224,15 @@ class ChatCompletion:
             context += f"Content: {result['document']['content'][:500]}...\n\n"
         messages.append({"role": "system", "content": context})
 
+        # RAG from graph
+        self.knowledge_graph_manager.retriever(question=user_prompt)
+        messages.append(
+            {
+                "role": "system",
+                "content": "Based on the information provided, here is a summary of the key points and relationships:",
+            }
+        )
+
         logger.debug("Messages going to OpenAI: %s", messages)
 
         response = self.client.chat.completions.create(
