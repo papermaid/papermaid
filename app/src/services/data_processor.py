@@ -5,10 +5,12 @@ import time
 from typing import List
 import uuid
 
+import tiktoken
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+import config
 
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
@@ -26,6 +28,7 @@ class DataProcessor:
     - Extracting text content from PDF files
     - Generating embedding vectors for text content
     - Inserting processed data into a Cosmos DB collection
+    - Splitting content into chunks
     """
 
     def __init__(
@@ -41,6 +44,7 @@ class DataProcessor:
         """
         self.cosmos_db = cosmos_db
         self.langchain_embeddings_generator = langchain_embeddings_generator
+        self.tokenizer = tiktoken.encoding_for_model(config.OPENAI_16k_MODEL)
 
     async def process_pdfs(self, folder_path: str) -> list[dict]:
         """
@@ -160,6 +164,33 @@ class DataProcessor:
         logger.debug(
             f"Time taken: {duration:.2f} seconds ({duration:.3f} milliseconds)"
         )
+
+    def split_content(self, content: str, max_tokens: int = 12000) -> list[str]:
+        """
+        Split the content into chunks of approximately max_tokens.
+
+        :param content: The text content to be split.
+        :param max_tokens: The maximum number of tokens per chunk.
+        :return: A list of content chunks.
+        """
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for line in content.split("\n"):
+            line_length = len(self.tokenizer.encode(line))
+            if current_length + line_length > max_tokens:
+                chunks.append("\n".join(current_chunk))
+                current_chunk = [line]
+                current_length = line_length
+            else:
+                current_chunk.append(line)
+                current_length += line_length
+
+        if current_chunk:
+            chunks.append("\n".join(current_chunk))
+
+        return chunks
 
     def pdf_to_document(self, file_path: str) -> list[Document]:
         """

@@ -27,7 +27,7 @@ def main():
         )
         use_graph = st.checkbox("Use Graph?", value=False)
 
-    PAGE_MAP[current_page]().write(openai_model, use_graph)
+    PAGE_MAP[current_page]().write(use_graph)
 
 if __name__ == "__main__":
     main()

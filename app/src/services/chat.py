@@ -1,30 +1,29 @@
-import json
 import logging
-from typing import Any
-
+from typing import Any, List
 import tempfile
 import os
+import asyncio
 
 import config
 from openai import OpenAI
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from src.services.data_processor import DataProcessor
-from src.services.graph import KnownledgeGraphManager
+from src.services.graph import KnowledgeGraphManager
 
 logger = logging.getLogger("papermaid")
 
 
 class ChatCompletion:
     """
-    Manages chat completions using OpenAI, vector search, and document processing.
+    Handles chat completions and related operations.
 
-    This class handles various aspects of chat completion, including:
-    - Initializing connections to OpenAI, CosmosDB, and other necessary services
-    - Performing vector searches on stored documents
-    - Retrieving chat history
-    - Generating chat completions based on user input and context
-    - Processing and storing uploaded files for future reference
+    This class provides functionality for:
+    - Processing uploaded files
+    - Generating chat completions based on user input and file contents
+    - Summarizing content
+    - Performing vector searches
+    - Managing chat history
     """
 
     def __init__(
@@ -32,33 +31,114 @@ class ChatCompletion:
         cosmos_db: CosmosDB,
         embeddings_generator: LangchainEmbeddingsGenerator,
         data_processor: DataProcessor,
-        knownledge_graph_manager: KnownledgeGraphManager,
+        knowledge_graph_manager: KnowledgeGraphManager,
     ) -> None:
-        """Initialize the ChatCompletion instance with necessary services."""
+        """
+        Initialize the ChatCompletion with necessary services.
+
+        :param cosmos_db: An instance of CosmosDB for database operations.
+        :param embeddings_generator: An instance of LangchainEmbeddingsGenerator for generating embeddings.
+        :param data_processor: An instance of DataProcessor for processing data.
+        """
         self.client = OpenAI(api_key=config.OPENAI_KEY)
         self.cosmos_db = cosmos_db
         self.embeddings_generator = embeddings_generator
         self.data_processor = data_processor
-        self.knownledge_graph_manager = knownledge_graph_manager
+        self.knowledge_graph_manager = knowledge_graph_manager
+
+    async def process_file(self, file):
+        """
+        Extract content from the uploaded file and split into chunks.
+
+        :param file: The uploaded file object.
+        :return: A list of content chunks.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = os.path.join(temp_dir, file.name)
+            with open(file_path, "wb") as f:
+                f.write(file.getvalue())
+            content = await self.data_processor.extract_text_from_pdf(file_path)
+            # self.knowledge_graph_manager.construct_graph(file_path)
+            return self.data_processor.split_content(content)
+
+    async def chat_completion(
+        self, user_input: str, file_contents: List[List[str]]
+    ) -> str:
+        """
+        Generate a chat completion based on user input and summarized file contents.
+
+        :param user_input: The user's input query.
+        :param file_contents: A list of file contents, where each file's content is split into chunks.
+        :return: The generated chat completion.
+        """
+        logger.info("Starting completion: %s", user_input)
+
+        summarized_contents = []
+        for file_chunks in file_contents:
+            file_summaries = await asyncio.gather(
+                *[self.summarize_content(chunk) for chunk in file_chunks]
+            )
+            summarized_contents.append("\n".join(file_summaries))
+
+        combined_input = f"{user_input}\n\nSummarized File Contents:\n"
+        for i, summary in enumerate(summarized_contents, 1):
+            combined_input += f"(Title).\nSummary:\n{summary}\n\n"
+
+        user_embeddings = await self.embeddings_generator.generate_embeddings(
+            combined_input
+        )
+        search_results = self.vector_search(user_embeddings)
+        chat_history = self.get_chat_history(3)
+        completions_results = self.generate_completion(
+            combined_input, search_results, chat_history
+        )
+        completions_results = completions_results["choices"][0]["message"]["content"]
+        logger.info("Done generating completions: %s", completions_results)
+        return completions_results
+
+    async def summarize_content(self, content: str, max_tokens: int = 2000) -> str:
+        """
+        Summarize the given content to fit within the specified token limit.
+
+        :param content: The content to be summarized.
+        :param max_tokens: The maximum number of tokens for the summary.
+        :return: The summarized content.
+        """
+        summary_prompt = f"Summarize the following content in about {max_tokens} tokens, focusing on the most important information:\n\n{content}"
+
+        response = self.client.chat.completions.create(
+            model=config.OPENAI_16k_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that summarizes academic content.",
+                },
+                {"role": "user", "content": summary_prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=0.3,
+        )
+
+        return response.choices[0].message.content
 
     def vector_search(
-        self, vectors: list[float], similarity_score=0.02, num_results=5
+        self, vectors: list[float], similarity_score=0.8, num_results=3
     ) -> list[dict[str, Any]]:
         """
-        Search the Cosmos DB for the most similar vectors to the given vectors.
+        Perform a vector search in the database.
 
-        :param vectors: The vectors to search for.
-        :param similarity_score: The minimum similarity score to return.
+        :param vectors: The embedding vectors to search for.
+        :param similarity_score: The minimum similarity score for results.
         :param num_results: The number of results to return.
-        :return: The most similar vectors to the given vectors
+        :return: A list of search results with similarity scores.
         """
         results = self.cosmos_db.query_items(
             query="""
-    SELECT TOP @num_results c.overview, VectorDistance(c.vector, @embedding) as SimilarityScore 
-    FROM c
-    WHERE VectorDistance(c.vector, @embedding) > @similarity_score
-    ORDER BY VectorDistance(c.vector, @embedding)
-    """,
+            SELECT TOP @num_results c.filename, c.content, VectorDistance(c.vector, @embedding) as SimilarityScore 
+            FROM c
+            WHERE VectorDistance(c.vector, @embedding) > @similarity_score
+            ORDER BY VectorDistance(c.vector, @embedding)
+            """,
             parameters=[
                 {"name": "@embedding", "value": vectors},
                 {"name": "@num_results", "value": num_results},
@@ -73,13 +153,18 @@ class ChatCompletion:
         return formatted_results
 
     def get_chat_history(self, completions=3) -> list:
-        """Retrieve the most recent chat history from Cosmos DB."""
+        """
+        Retrieve the chat history from the database.
+
+        :param completions: The number of recent completions to retrieve.
+        :return: A list of chat history items.
+        """
         results = self.cosmos_db.query_items(
             query="""
-    SELECT TOP @completions *
-    FROM c
-    ORDER BY c._ts DESC
-    """,
+            SELECT TOP @completions *
+            FROM c
+            ORDER BY c._ts DESC
+            """,
             parameters=[{"name": "@completions", "value": completions}],
         )
         logger.info("Done getting chat history")
@@ -89,15 +174,15 @@ class ChatCompletion:
         self, user_prompt: str, vector_search_results: list, chat_history: list[dict]
     ) -> dict[str, Any]:
         """
-        Generate a chat completion based on user input and context.
+        Generate a chat completion based on the user prompt, vector search results, and chat history.
 
-        :param user_prompt: The user prompt to complete.
-        :param vector_search_results: The vector search results from the PDF content.
+        :param user_prompt: The user's input prompt.
+        :param vector_search_results: The results from the vector search.
         :param chat_history: The chat history.
-        :return: The dictionary representation of the model's response.
+        :return: The generated completion as a dictionary.
         """
         system_prompt = """
-        You are an advanced AI assistant specializing in academic research analysis. Your primary functions are to summarize scientific papers and identify relationships among papers or conferences based on PDF files provided by users.
+        You are an advanced AI assistant specializing in academic research analysis. Your primary functions are to summarize scientific papers and identify relationships among papers or         conferences based on PDF files provided by users.
         Your capabilities include:
         1. Summarizing individual papers, highlighting key findings, methodologies, and conclusions.
         2. Identifying common themes, methodologies, or research directions across multiple papers.
@@ -112,7 +197,7 @@ class ChatCompletion:
         - When appropriate, structure your responses with clear headings or bullet points for better readability.
         - If requested, provide a list of key papers or authors that appear influential based on your analysis.
 
-        Remember to base your responses solely on the information extracted from the PDF files and provided in the vector search results. Do not make assumptions or include external information not present in the given context.
+        Remember to base your responses on the information extracted from the PDF files, provided in the user prompt, and the vector search results. Do not make assumptions or include external information not present in the given context.
         """
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(
@@ -125,52 +210,19 @@ class ChatCompletion:
             ]
         )
         messages.append({"role": "user", "content": user_prompt})
-        messages.extend(
-            [
-                {"role": "system", "content": json.dumps(result["document"])}
-                for result in vector_search_results
-            ]
-        )
+
+        context = "Relevant information from the database:\n"
+        for result in vector_search_results:
+            context += f"File: {result['document']['filename']}\n"
+            context += f"Content: {result['document']['content'][:500]}...\n\n"
+        messages.append({"role": "system", "content": context})
 
         logger.debug("Messages going to OpenAI: %s", messages)
 
         response = self.client.chat.completions.create(
-            model=config.OPENAI_COMPLETIONS_DEPLOYMENT,
+            model=config.OPENAI_16k_MODEL,
             messages=messages,
-            temperature=0.1,
+            temperature=0.3,
         )
         logger.debug("Done generating completions in generate_completion")
         return response.model_dump()
-
-    async def chat_completion(self, user_input: str, use_graph = False) -> str:
-        """Generate a chat completion based on user input."""
-        logger.info("Starting completion: %s", user_input)
-        user_embeddings = await self.embeddings_generator.generate_embeddings(
-            user_input
-        )
-        search_results = self.vector_search(user_embeddings)
-        chat_history = self.get_chat_history(3)
-        if use_graph:
-            addition_relation_info = self.knownledge_graph_manager.retriever(user_input)
-            user_input += addition_relation_info
-            logger.info("Added graph search results: %s", addition_relation_info)
-        completions_results = self.generate_completion(
-            user_input, search_results, chat_history
-        )
-        completions_results = completions_results["choices"][0]["message"]["content"]
-        logger.info("Done generating completions: %s", completions_results)
-        return completions_results
-
-    async def process_and_store_file(self, file):
-        """Process and store an uploaded file for future reference."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            file_path = os.path.join(temp_dir, file.name)
-            with open(file_path, "wb") as f:
-                f.write(file.getvalue())
-            data = await self.data_processor.process_pdfs(temp_dir)
-            vector_property = "vector"
-            data_with_vectors = await self.data_processor.generate_vectors(
-                data, vector_property
-            )
-            # self.knownledge_graph_manager.construct_graph(file_path)
-            await self.data_processor.insert_data(data_with_vectors)
