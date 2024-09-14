@@ -1,5 +1,5 @@
 import logging
-
+import re
 import config
 import networkx as nx
 from langchain_community.graphs import Neo4jGraph
@@ -47,27 +47,25 @@ class KnowledgeGraphManager:
         )
         self.llm_transformer = LLMGraphTransformer(llm=self.llm)
         self.vector_index: Neo4jVector = Neo4jVector.from_existing_graph(
-                                                            OpenAIEmbeddings(api_key=config.OPENAI_KEY),
-                                                            search_type="hybrid",
-                                                            node_label="Document",
-                                                            text_node_properties=["text"],
-                                                            embedding_node_property="embedding",
-                                                            url=config.NEO4J_URL,
-                                                            username=config.NEO4J_USERNAME,
-                                                            password=config.NEO4J_PASSWORD,
-                                                            )
+            OpenAIEmbeddings(api_key=config.OPENAI_KEY),
+            search_type="hybrid",
+            node_label="Document",
+            text_node_properties=["text"],
+            embedding_node_property="embedding",
+            url=config.NEO4J_URL,
+            username=config.NEO4J_USERNAME,
+            password=config.NEO4J_PASSWORD,
+        )
         self.data_processor = data_processor
         self.__graph_data = {"nodes": set(), "edges": []}
 
     async def construct_graph(self, uploaded_file):
         """Construct a knowledge graph from an uploaded pdf file."""
         try:
-            logger.info(
-                f"Constructing graph from uploaded file: {uploaded_file.name}")
+            logger.info(f"Constructing graph from uploaded file: {uploaded_file.name}")
             documents = self.data_processor.pdf_to_document(uploaded_file)
             logger.debug(f"Documents loaded")
-            graph_documents = self.llm_transformer.convert_to_graph_documents(
-                documents)
+            graph_documents = self.llm_transformer.convert_to_graph_documents(documents)
             logger.debug(f"Graph documents converted")
             self.graph.add_graph_documents(
                 graph_documents,
@@ -86,13 +84,15 @@ class KnowledgeGraphManager:
             text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=24)
             documents = text_splitter.split_documents(raw_documents[:3])
 
-            llm=ChatOpenAI(temperature=0, model_name=config.OPENAI_16k_MODEL, api_key=config.OPENAI_KEY)
+            llm = ChatOpenAI(
+                temperature=0,
+                model_name=config.OPENAI_16k_MODEL,
+                api_key=config.OPENAI_KEY,
+            )
             llm_transformer = LLMGraphTransformer(llm=llm)
             graph_documents = llm_transformer.convert_to_graph_documents(documents)
             self.graph.add_graph_documents(
-                graph_documents,
-                baseEntityLabel=True,
-                include_source=True
+                graph_documents, baseEntityLabel=True, include_source=True
             )
             logger.info(f"Graph constructed from topic: {topic}")
             return True
@@ -241,13 +241,35 @@ class KnowledgeGraphManager:
             logger.error(f"Error saving graph: {str(e)}")
             return False
 
+    @staticmethod
+    def sanitize_query(query):
+        # Remove any characters that might interfere with the Neo4j query
+        sanitized = re.sub(r"[^\w\s]", "", query)
+        # Replace multiple spaces with a single space
+        sanitized = re.sub(r"\s+", " ", sanitized).strip()
+        return sanitized
+
     def retriever(self, question: str):
         """Retrieve information from the structured and unstructured data sources."""
-        print(f"Search query: {question}")
-        structured_data = self.structured_retriever(question)
-        unstructured_data = [
-            el.page_content for el in self.vector_index.similarity_search(question)
-        ]
+        print(f"Original search query: {question}")
+
+        sanitized_question = self.sanitize_query(question)
+        print(f"Sanitized search query: {sanitized_question}")
+
+        try:
+            structured_data = self.structured_retriever(sanitized_question)
+        except Exception as e:
+            print(f"Error in structured retrieval: {str(e)}")
+            structured_data = "No structured data available due to an error."
+
+        try:
+            unstructured_data = [
+                el.page_content for el in self.vector_index.similarity_search(question)
+            ]
+        except Exception as e:
+            print(f"Error in unstructured retrieval: {str(e)}")
+            unstructured_data = ["No unstructured data available due to an error."]
+
         final_data = f"""Structured data: {structured_data} Unstructured data: {"#Document ".join(unstructured_data)}"""
         return final_data
 

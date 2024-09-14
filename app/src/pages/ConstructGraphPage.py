@@ -14,10 +14,8 @@ class ConstructGraphPage:
     def __init__(self):
         self.cosmos_db = CosmosDB()
         self.embeddings_generator = LangchainEmbeddingsGenerator()
-        self.data_processor = DataProcessor(self.cosmos_db,
-                                            self.embeddings_generator)
-        self.knowledge_graph_manager = KnowledgeGraphManager(
-            self.data_processor)
+        self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
+        self.knowledge_graph_manager = KnowledgeGraphManager(self.data_processor)
 
         if "processed_files_2" not in st.session_state:
             st.session_state["processed_files_2"] = []
@@ -33,8 +31,7 @@ class ConstructGraphPage:
         :param files: A list of uploaded file objects.
         :return: A list of processed file contents.
         """
-        tasks = [self.knowledge_graph_manager.construct_graph(file) for file in
-                 files]
+        tasks = [self.knowledge_graph_manager.construct_graph(file) for file in files]
         return await asyncio.gather(*tasks)
 
     def handle_input(self):
@@ -44,8 +41,7 @@ class ConstructGraphPage:
         if st.session_state["user_input_2"]:
             user_input = st.session_state["user_input_2"]
             output = asyncio.run(
-                self.knowledge_graph_manager.construct_graph_from_topic(
-                    user_input)
+                self.knowledge_graph_manager.construct_graph_from_topic(user_input)
             )
             if output:
                 st.session_state["generated_2"].append(
@@ -53,6 +49,7 @@ class ConstructGraphPage:
             else:
                 st.session_state["generated_2"].append(
                     "Fail to construct graph knowledge from topic: " + user_input)
+
 
     def write(self, use_graph: bool = False):
         logger.info("Rendering ConstructGraphPage...")
@@ -82,8 +79,7 @@ class ConstructGraphPage:
             on_change=lambda: self.handle_input(),
             placeholder="Enter a topic to construct graph knowledge",
         )
-        st.text(
-            "Topic example: Machine Learning, Attention (Machine Learning), etc.")
+        st.text("Topic example: Machine Learning, Attention (Machine Learning), etc.")
 
         if st.session_state["generated_2"]:
             st.text("\n".join(st.session_state["generated_2"]))
