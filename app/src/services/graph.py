@@ -41,7 +41,7 @@ class KnowledgeGraphManager:
             uri=config.NEO4J_URL, auth=(config.NEO4J_USERNAME, config.NEO4J_PASSWORD)
         )
         self.llm = ChatOpenAI(
-            temperature=0, model_name="gpt-4o", api_key=config.OPENAI_KEY
+            temperature=0, model_name=config.openai_completions_model, api_key=config.OPENAI_KEY
         )
         self.llm_transformer = LLMGraphTransformer(llm=self.llm)
         self.vector_index: Neo4jVector = Neo4jVector.from_existing_graph(

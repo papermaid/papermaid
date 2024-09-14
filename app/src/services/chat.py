@@ -58,6 +58,7 @@ class ChatCompletion:
             with open(file_path, "wb") as f:
                 f.write(file.getvalue())
             content = await self.data_processor.extract_text_from_pdf(file_path)
+            # self.knowledge_graph_manager.construct_graph(file_path)
             return self.data_processor.split_content(content)
 
     async def chat_completion(
