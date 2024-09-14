@@ -18,6 +18,7 @@ COSMOS_DATABASE = os.getenv('cosmos_database_name')
 COSMOS_COLLECTION = os.getenv('cosmos_collection_name')
 COSMOS_VECTOR_PROPERTY = os.getenv('cosmos_vector_property_name')
 
+
 # OpenAI configuration
 OPENAI_ENDPOINT = os.getenv('openai_endpoint')
 OPENAI_KEY = os.getenv('openai_key')
@@ -29,7 +30,11 @@ OPENAI_COMPLETIONS_DEPLOYMENT = os.getenv('openai_completions_deployment')
 # Model configuration
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 
-
 # Bing Search configuration
 BING_SEARCH_URL = os.getenv('bing_search_endpoint')
 BING_SUBSCRIPTION_KEY = os.getenv('bing_search_key')
+OPENAI_16k_MODEL = "gpt-3.5-turbo-16k"
+
+NEO4J_URL = os.getenv('neo4j_url')
+NEO4J_USERNAME = os.getenv('neo4j_username')
+NEO4J_PASSWORD = os.getenv('neo4j_password')

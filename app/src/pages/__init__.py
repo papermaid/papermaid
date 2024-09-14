@@ -1,13 +1,10 @@
 from .ChatPage import ChatPage
-from .SettingPage import SettingPage
+from .ConstructGraphPage import ConstructGraphPage
 from ..utils import Page
 
 from typing import Dict, Type
 
 
-PAGE_MAP: Dict[str, Type[Page]] = {
-    "Chat": ChatPage,
-    "Settings": SettingPage,
-}
+PAGE_MAP: Dict[str, Type[Page]] = {"Chat": ChatPage, "Create Graph": ConstructGraphPage}
 
 __all__ = ["PAGE_MAP"]

@@ -1,77 +1,137 @@
+import asyncio
+import logging
+
 import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
+from src.services.graph import KnowledgeGraphManager
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
+from streamlit.components.v1 import html
 from streamlit_chat import message
+
+logger = logging.getLogger("papermaid")
 
 
 class ChatPage:
-    chat_history = []
-    cosmos_db = CosmosDB()
-    embeddings_generator = LangchainEmbeddingsGenerator()  # Change this line
-    chat_completion = ChatCompletion(cosmos_db, embeddings_generator)
-    data_processor = DataProcessor(cosmos_db, embeddings_generator)
+    """
+    Manages the chat interface and user interactions.
+
+    This class provides functionality for:
+    - Initializing and managing the chat session state
+    - Processing uploaded files
+    - Handling user input and generating responses
+    - Rendering the chat interface
+    """
 
     def __init__(self):
-        pass
+        """
+        Initialize the ChatPage with necessary services and session state.
+        """
+        self.cosmos_db = CosmosDB()
+        self.embeddings_generator = LangchainEmbeddingsGenerator()
+        self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
+        self.knowledge_graph_manager = KnowledgeGraphManager(self.data_processor)
+        self.chat_completion = ChatCompletion(
+            self.cosmos_db,
+            self.embeddings_generator,
+            self.data_processor,
+            self.knowledge_graph_manager,
+        )
 
-    async def upload_files(self, folder_path):
-        data = self.data_processor.process_pdfs(folder_path)
+        if "generated" not in st.session_state:
+            st.session_state["generated"] = []
+        if "past" not in st.session_state:
+            st.session_state["past"] = []
+        if "file_contents" not in st.session_state:
+            st.session_state["file_contents"] = []
+        if "processed_files" not in st.session_state:
+            st.session_state["processed_files"] = []
+        if "user_input" not in st.session_state:
+            st.session_state["user_input"] = ""
 
-    def write(self):
-        message("Welcome to PaperMaid! Ask me anything about your research.",
-                is_user=False)
+    async def process_files(self, files):
+        """
+        Process multiple files and return their contents as chunks.
 
-        if 'generated' not in st.session_state:
-            st.session_state['generated'] = []
-        if 'past' not in st.session_state:
-            st.session_state['past'] = []
-        if 'uploaded_files' not in st.session_state:
-            st.session_state['uploaded_files'] = []
+        :param files: A list of uploaded file objects.
+        :return: A list of processed file contents.
+        """
+        tasks = [self.chat_completion.process_file(file) for file in files]
+        return await asyncio.gather(*tasks)
+
+    def handle_input(self, use_graph=False, *args, **kwargs):
+        """
+        Handle user input, generate a response, and update the chat history.
+        """
+        if st.session_state["user_input"]:
+            user_input = st.session_state["user_input"]
+            output = asyncio.run(
+                self.chat_completion.chat_completion(
+                    user_input, st.session_state["file_contents"]
+                )
+            )
+
+            st.session_state["past"].append(user_input)
+            st.session_state["generated"].append(output)
+            st.session_state["user_input"] = ""
+
+            if use_graph and self.knowledge_graph_manager.save_graph():
+                with open("nx.html", "r") as f:
+                    graph_html = f.read()
+                    html(graph_html, height=750)
+
+    def write(self, use_graph=False):
+        """
+        Render the chat interface and handle user interactions.
+        """
+        st.title("PaperMaid Chat")
+
+        message(
+            "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
+        )
 
         style = f"""
-        <style>
-            .stFileUploader {{
-                z-index: 1;
-                position: fixed;
-                bottom: 6rem;
-            }}
-            .stTextInput {{
-                z-index: 1;
-                position: fixed;
-                bottom: 3rem;
-            }}
-        </style>
-        """
+    """
         st.markdown(style, unsafe_allow_html=True)
 
-        uploaded_files = st.file_uploader("Upload files", type=["pdf"],
-                                          accept_multiple_files=True,
-                                          key="fileUploader",
-                                          label_visibility="collapsed")
+        uploaded_files = st.file_uploader(
+            "Upload files",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="fileUploader",
+            label_visibility="collapsed",
+        )
 
         if uploaded_files:
-            st.session_state['uploaded_files'] = uploaded_files
-            # Process file tong nee
-            for file in uploaded_files:
-                st.write(f"Uploaded file: {file.name}")
-                st.write(f"File type: {file.type}")
-                st.write(f"File size: {file.size} bytes")
-                st.write(f"File content: {file.getvalue()}")
+            new_files = [
+                file
+                for file in uploaded_files
+                if file not in st.session_state["processed_files"]
+            ]
+            if new_files:
+                st.write(f"Processing {len(new_files)} new file(s)...")
+                new_contents = asyncio.run(self.process_files(new_files))
+                st.session_state["file_contents"].extend(new_contents)
+                st.session_state["processed_files"].extend(new_files)
+                st.success(f"Successfully processed {len(new_files)} file(s)")
 
-        user_input = st.text_input("Prompt here: ", key="input",
-                                   label_visibility="collapsed")
-
-        if user_input:
-            output = self.chat_completion.chat_completion(user_input)
-            # output = "PLACEHOLDER OUTPUT PLACEHOLDER OUTPUT PLACEHOLDER OUTPUTPLACEHOLDER OUTPUTPLACEHOLDER OUTPUTPLACEHOLDER OUTPUT"
-
-            st.session_state.past.append(user_input)
-            st.session_state.generated.append(output)
-
-        if st.session_state['generated']:
-            for i in range(len(st.session_state['generated'])):
-                message(st.session_state['past'][i], is_user=True,
-                        key=str(i) + '_user')
+        if st.session_state["generated"]:
+            for i in range(len(st.session_state["generated"])):
+                message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
+
+        st.text_input(
+            "Ask a question:",
+            key="user_input",
+            on_change=lambda: self.handle_input(use_graph=use_graph),
+        )
+
+
+def main():
+    chat_page = ChatPage()
+    chat_page.write()
+
+
+if __name__ == "__main__":
+    main()
