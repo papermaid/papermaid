@@ -34,6 +34,7 @@ class KnowledgeGraphManager:
     GRAPH_OUTPUT_FILENAME = "nx.html"
 
     def __init__(self, data_processor: DataProcessor):
+        logger.info("Initializing KnowledgeGraphManager...")
         self.graph = Neo4jGraph(
             url=config.NEO4J_URL,
             username=config.NEO4J_USERNAME,
@@ -163,7 +164,7 @@ class KnowledgeGraphManager:
             response = self.graph.query(
                 """CALL db.index.fulltext.queryNodes('entity', $query, {limit:2})
                 YIELD node,score
-                CALL {
+                CALL (*) {
                 WITH node
                 MATCH (node)-[r:!MENTIONS]->(neighbor)
                 RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS output
@@ -251,10 +252,7 @@ class KnowledgeGraphManager:
 
     def retriever(self, question: str):
         """Retrieve information from the structured and unstructured data sources."""
-        print(f"Original search query: {question}")
-
         sanitized_question = self.sanitize_query(question)
-        print(f"Sanitized search query: {sanitized_question}")
 
         try:
             structured_data = self.structured_retriever(sanitized_question)
@@ -271,6 +269,7 @@ class KnowledgeGraphManager:
             unstructured_data = ["No unstructured data available due to an error."]
 
         final_data = f"""Structured data: {structured_data} Unstructured data: {"#Document ".join(unstructured_data)}"""
+        logger.info(f"Retrieved data: {final_data}")
         return final_data
 
 
