@@ -1,14 +1,8 @@
 import os
 from dotenv import load_dotenv
-from decouple import config
-
-# import sys
-
-# # Add the src directory to the Python path
-# sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
-load_dotenv("/Users/tar/Documents/year3/RAG/papermaid/.env")
+load_dotenv(".env")
 
 
 # Cosmos DB configuration

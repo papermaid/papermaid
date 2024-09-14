@@ -23,7 +23,7 @@ def main():
         openai_model = st.selectbox(
             "Choose OpenAI Model:",
             options=["gpt-3.5-turbo", "gpt-4o"],
-            index=0,  # Default to gpt-3.5-turbo
+            index=0
         )
         use_graph = st.checkbox("Use Graph?", value=False)
 

@@ -9,6 +9,7 @@ from src.services.graph import KnowledgeGraphManager
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 from streamlit.components.v1 import html
 from streamlit_chat import message
+from src.services.web_search import BingSearchClient
 
 logger = logging.getLogger("papermaid")
 
@@ -32,11 +33,13 @@ class ChatPage:
         self.embeddings_generator = LangchainEmbeddingsGenerator()
         self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
         self.knowledge_graph_manager = KnowledgeGraphManager(self.data_processor)
+        self.bing_search_client = BingSearchClient()
         self.chat_completion = ChatCompletion(
             self.cosmos_db,
             self.embeddings_generator,
             self.data_processor,
             self.knowledge_graph_manager,
+            self.bing_search_client,
         )
 
         if "generated" not in st.session_state:
@@ -49,6 +52,8 @@ class ChatPage:
             st.session_state["processed_files"] = []
         if "user_input" not in st.session_state:
             st.session_state["user_input"] = ""
+        if "Internet Access_results" not in st.session_state:
+            st.session_state["Internet Access_results"] = []
 
     async def process_files(self, files):
         """
@@ -66,9 +71,17 @@ class ChatPage:
         """
         if st.session_state["user_input"]:
             user_input = st.session_state["user_input"]
+            search_results = self.bing_search_client.search(user_input)
+            if search_results:
+                urls = self.bing_search_client.format_url(search_results)
+                snippets = self.bing_search_client.format_snippet(search_results)
+                st.session_state["Internet Access_results"] = list(zip(urls, snippets))
+
             output = asyncio.run(
                 self.chat_completion.chat_completion(
-                    user_input, st.session_state["file_contents"]
+                    user_input,
+                    st.session_state["file_contents"],
+                    st.session_state["Internet Access_results"],
                 )
             )
 
@@ -121,6 +134,20 @@ class ChatPage:
                 message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
+            if st.session_state["Internet Access_results"]:
+                st.write("Related web search results:")
+                for result in st.session_state["Internet Access_results"][:3]:
+                    if isinstance(result, tuple) and len(result) >= 1:
+                        url = result[0]
+                        st.markdown(f"- [{url}]({url})")
+                    elif isinstance(result, str):
+                        st.markdown(f"- [{result}]({result})")
+                    else:
+                        st.write(f"Unexpected result format: {result}")
+
+                st.write("---")
+            else:
+                st.write("No web search results available.")
         st.text_input(
             "Ask a question:",
             key="user_input",
