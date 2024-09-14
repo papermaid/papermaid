@@ -51,6 +51,6 @@ def add_custom_css():
         }
         </style>
         """,
-        #191919
+        # 191919
         unsafe_allow_html=True,
     )

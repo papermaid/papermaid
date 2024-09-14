@@ -5,9 +5,9 @@ import streamlit as st
 from src.services.chat import ChatCompletion
 from src.services.data_processor import DataProcessor
 from src.services.database import CosmosDB
-from src.services.graph import KnownledgeGraphManager  # Added this import
+from src.services.graph import KnowledgeGraphManager
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
-from streamlit.components.v1 import html  # Added this import
+from streamlit.components.v1 import html
 from streamlit_chat import message
 
 logger = logging.getLogger("papermaid")
@@ -30,13 +30,13 @@ class ChatPage:
         """
         self.cosmos_db = CosmosDB()
         self.embeddings_generator = LangchainEmbeddingsGenerator()
-        self.data_processor = DataProcessor(self.cosmos_db,
-                                            self.embeddings_generator)
-        self.knownledge_graph_manager = KnownledgeGraphManager(
-            self.data_processor)  # Added this line
+        self.data_processor = DataProcessor(self.cosmos_db, self.embeddings_generator)
+        self.knowledge_graph_manager = KnowledgeGraphManager(self.data_processor)
         self.chat_completion = ChatCompletion(
-            self.cosmos_db, self.embeddings_generator, self.data_processor,
-            self.knownledge_graph_manager  # Added knownledge_graph_manager
+            self.cosmos_db,
+            self.embeddings_generator,
+            self.data_processor,
+            self.knowledge_graph_manager,
         )
 
         if "generated" not in st.session_state:
@@ -60,7 +60,7 @@ class ChatPage:
         tasks = [self.chat_completion.process_file(file) for file in files]
         return await asyncio.gather(*tasks)
 
-    def handle_input(self):
+    def handle_input(self, use_graph=False, *args, **kwargs):
         """
         Handle user input, generate a response, and update the chat history.
         """
@@ -76,20 +76,19 @@ class ChatPage:
             st.session_state["generated"].append(output)
             st.session_state["user_input"] = ""
 
-            if self.knownledge_graph_manager.save_graph():
-                with open('nx.html', 'r') as f:
+            if use_graph and self.knowledge_graph_manager.save_graph():
+                with open("nx.html", "r") as f:
                     graph_html = f.read()
                     html(graph_html, height=750)
 
-    def write(self):
+    def write(self, use_graph=False):
         """
         Render the chat interface and handle user interactions.
         """
         st.title("PaperMaid Chat")
 
         message(
-            "Welcome to PaperMaid! Ask me anything about your research.",
-            is_user=False
+            "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
         )
 
         style = f"""
@@ -119,12 +118,14 @@ class ChatPage:
 
         if st.session_state["generated"]:
             for i in range(len(st.session_state["generated"])):
-                message(st.session_state["past"][i], is_user=True,
-                        key=str(i) + "_user")
+                message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
-        st.text_input("Ask a question:", key="user_input",
-                      on_change=self.handle_input)
+        st.text_input(
+            "Ask a question:",
+            key="user_input",
+            on_change=lambda: self.handle_input(use_graph=use_graph),
+        )
 
 
 def main():
