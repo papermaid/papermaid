@@ -91,6 +91,11 @@ class ChatPage:
             st.session_state["generated"].append(output)
             st.session_state["user_input"] = ""
 
+            if use_graph and self.knowledge_graph_manager.save_graph():
+                with open("nx.html", "r") as f:
+                    graph_html = f.read()
+                    html(graph_html, height=450)
+
 
     def write(self, openai_model: str, use_graph: bool):
         """
@@ -164,13 +169,6 @@ class ChatPage:
                         st.markdown(f"- [{result}]({result})")
                     else:
                         st.write(f"Unexpected result format: {result}")
-
-            if use_graph and self.knowledge_graph_manager.save_graph():
-                with open("nx.html", "r") as f:
-                    graph_html = f.read()
-                    html(graph_html, height=450)
-
-                st.write("---")
             else:
                 st.write("No web search results available.")
             st.text_input(

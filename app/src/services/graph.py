@@ -207,10 +207,10 @@ class KnowledgeGraphManager:
 
             for source, rel, target in self.__graph_data["edges"]:
                 G.add_node(
-                    source, label=source, size=30, font={"size": 16, "color": "white"}
+                    source, label=source, size=30, font={"size": 16, "color": "#f3c2a4"}
                 )
                 G.add_node(
-                    target, label=target, size=30, font={"size": 16, "color": "white"}
+                    target, label=target, size=30, font={"size": 16, "color": "#f3c2a4"}
                 )
                 G.add_edge(
                     source,
@@ -231,12 +231,13 @@ class KnowledgeGraphManager:
             nt.from_nx(G)
 
             for node in nt.nodes:
-                node["font"] = {"size": 16, "color": "white"}
+                node["font"] = {"size": 18, "color": "#ffd380"}
                 node["borderWidth"] = 2
-                node["color"] = "#1f78b4"
+                node["color"] = "#ffd380"
 
             for edge in nt.edges:
-                edge["font"] = {"size": 14, "color": "lightgrey"}
+                edge["font"] = {"size": 12, "color": "#003f5c"}
+                edge['color'] = "#a5abb6"
                 edge["width"] = 2
 
             nt.force_atlas_2based()
