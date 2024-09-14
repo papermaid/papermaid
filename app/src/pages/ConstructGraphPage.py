@@ -19,12 +19,12 @@ class ConstructGraphPage:
         self.knowledge_graph_manager = KnowledgeGraphManager(
             self.data_processor)
 
-        if "processed_files" not in st.session_state:
-            st.session_state["processed_files"] = []
-        if "user_input" not in st.session_state:
-            st.session_state["user_input"] = ""
-        if "generated" not in st.session_state:
-            st.session_state["generated"] = []
+        if "processed_files_2" not in st.session_state:
+            st.session_state["processed_files_2"] = []
+        if "user_input_2" not in st.session_state:
+            st.session_state["user_input_2"] = ""
+        if "generated_2" not in st.session_state:
+            st.session_state["generated_2"] = []
 
     async def process_files(self, files):
         """
@@ -41,17 +41,17 @@ class ConstructGraphPage:
         """
         Handle user input, generate a response, and update the chat history.
         """
-        if st.session_state["user_input"]:
-            user_input = st.session_state["user_input"]
+        if st.session_state["user_input_2"]:
+            user_input = st.session_state["user_input_2"]
             output = asyncio.run(
                 self.knowledge_graph_manager.construct_graph_from_topic(
                     user_input)
             )
             if output:
-                st.session_state["generated"].append(
+                st.session_state["generated_2"].append(
                     "Constructing graph knowledge from topic: " + user_input + " Successful")
             else:
-                st.session_state["generated"].append(
+                st.session_state["generated_2"].append(
                     "Fail to construct graph knowledge from topic: " + user_input)
 
     def write(self, use_graph: bool = False):
@@ -68,12 +68,12 @@ class ConstructGraphPage:
             new_files = [
                 file
                 for file in uploaded_files
-                if file not in st.session_state["processed_files"]
+                if file not in st.session_state["processed_files_2"]
             ]
             if new_files:
                 st.write(f"Processing {len(new_files)} new file(s)...")
                 asyncio.run(self.process_files(new_files))
-                st.session_state["processed_files"].extend(new_files)
+                st.session_state["processed_files_2"].extend(new_files)
                 st.success(f"Successfully processed {len(new_files)} file(s)")
 
         st.text_input(
@@ -85,5 +85,5 @@ class ConstructGraphPage:
         st.text(
             "Topic example: Machine Learning, Attention (Machine Learning), etc.")
 
-        if st.session_state["generated"]:
-            st.text("\n".join(st.session_state["generated"]))
+        if st.session_state["generated_2"]:
+            st.text("\n".join(st.session_state["generated_2"]))
