@@ -2,7 +2,13 @@ import os
 from dotenv import load_dotenv
 from decouple import config
 
-load_dotenv(".env")
+# import sys
+
+# # Add the src directory to the Python path
+# sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+
+load_dotenv("/Users/tar/Documents/year3/RAG/papermaid/.env")
 
 
 # Cosmos DB configuration
@@ -23,9 +29,12 @@ OPENAI_COMPLETIONS_DEPLOYMENT = os.getenv('openai_completions_deployment')
 
 # Model configuration
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
+
+# Bing Search configuration
+BING_SEARCH_URL = os.getenv('bing_search_endpoint')
+BING_SUBSCRIPTION_KEY = os.getenv('bing_search_key')
 OPENAI_16k_MODEL = "gpt-3.5-turbo-16k"
 
-# Neo4j configuration
 NEO4J_URL = os.getenv('neo4j_url')
 NEO4J_USERNAME = os.getenv('neo4j_username')
 NEO4J_PASSWORD = os.getenv('neo4j_password')
