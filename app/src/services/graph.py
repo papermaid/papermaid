@@ -34,7 +34,6 @@ class KnowledgeGraphManager:
     GRAPH_OUTPUT_FILENAME = "nx.html"
 
     def __init__(self, data_processor: DataProcessor):
-        logger.info("Initializing KnowledgeGraphManager...")
         self.graph = Neo4jGraph(
             url=config.NEO4J_URL,
             username=config.NEO4J_USERNAME,
@@ -60,13 +59,19 @@ class KnowledgeGraphManager:
         self.data_processor = data_processor
         self.__graph_data = {"nodes": set(), "edges": []}
 
-    async def construct_graph(self, uploaded_file):
+    async def construct_graph(self, uploaded_file, openai_model: str):
         """Construct a knowledge graph from an uploaded pdf file."""
         try:
             logger.info(f"Constructing graph from uploaded file: {uploaded_file.name}")
             documents = self.data_processor.pdf_to_document(uploaded_file)
             logger.debug(f"Documents loaded")
-            graph_documents = self.llm_transformer.convert_to_graph_documents(documents)
+            llm = ChatOpenAI(
+                temperature=0,
+                model_name=openai_model,
+                api_key=config.OPENAI_KEY,
+            )
+            llm_transformer = LLMGraphTransformer(llm=llm)
+            graph_documents = llm_transformer.convert_to_graph_documents(documents)
             logger.debug(f"Graph documents converted")
             self.graph.add_graph_documents(
                 graph_documents,
@@ -77,7 +82,7 @@ class KnowledgeGraphManager:
         except Exception as e:
             logger.error(f"Error constructing graph: {str(e)}")
 
-    async def construct_graph_from_topic(self, topic: str) -> bool:
+    async def construct_graph_from_topic(self, topic: str, openai_model: str) -> bool:
         """Construct a knowledge graph from a given topic."""
         try:
             logger.info(f"Constructing graph from topic: {topic}")
@@ -87,7 +92,7 @@ class KnowledgeGraphManager:
 
             llm = ChatOpenAI(
                 temperature=0,
-                model_name=config.OPENAI_16k_MODEL,
+                model_name=openai_model,
                 api_key=config.OPENAI_KEY,
             )
             llm_transformer = LLMGraphTransformer(llm=llm)

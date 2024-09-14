@@ -22,12 +22,12 @@ def main():
         st.subheader("Settings")
         openai_model = st.selectbox(
             "Choose OpenAI Model:",
-            options=["gpt-3.5-turbo", "gpt-4o"],
+            options=["gpt-3.5-turbo", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
             index=0
         )
         use_graph = st.checkbox("Use Graph?", value=False)
 
-    PAGE_MAP[current_page]().write(use_graph)
+    PAGE_MAP[current_page]().write(use_graph=use_graph, openai_model=openai_model)
 
 if __name__ == "__main__":
     main()

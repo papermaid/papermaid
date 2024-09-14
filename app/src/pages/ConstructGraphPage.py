@@ -24,24 +24,24 @@ class ConstructGraphPage:
         if "generated_2" not in st.session_state:
             st.session_state["generated_2"] = []
 
-    async def process_files(self, files):
+    async def process_files(self, files, openai_model):
         """
         Process multiple files and return their contents as chunks.
 
         :param files: A list of uploaded file objects.
         :return: A list of processed file contents.
         """
-        tasks = [self.knowledge_graph_manager.construct_graph(file) for file in files]
+        tasks = [self.knowledge_graph_manager.construct_graph(file, openai_model) for file in files]
         return await asyncio.gather(*tasks)
 
-    def handle_input(self):
+    def handle_input(self, openai_model):
         """
         Handle user input, generate a response, and update the chat history.
         """
         if st.session_state["user_input_2"]:
             user_input = st.session_state["user_input_2"]
             output = asyncio.run(
-                self.knowledge_graph_manager.construct_graph_from_topic(user_input)
+                self.knowledge_graph_manager.construct_graph_from_topic(user_input, openai_model)
             )
             if output:
                 st.session_state["generated_2"].append(
@@ -51,7 +51,7 @@ class ConstructGraphPage:
                     "Fail to construct graph knowledge from topic: " + user_input)
 
 
-    def write(self, use_graph: bool = False):
+    def write(self, openai_model: str, use_graph: bool):
         logger.info("Rendering ConstructGraphPage...")
         uploaded_files = st.file_uploader(
             "Upload files",
@@ -69,14 +69,14 @@ class ConstructGraphPage:
             ]
             if new_files:
                 st.write(f"Processing {len(new_files)} new file(s)...")
-                asyncio.run(self.process_files(new_files))
+                asyncio.run(self.process_files(new_files, openai_model))
                 st.session_state["processed_files_2"].extend(new_files)
                 st.success(f"Successfully processed {len(new_files)} file(s)")
 
         st.text_input(
             "Enter a topic to construct graph knowledge",
             key="user_input",
-            on_change=lambda: self.handle_input(),
+            on_change=lambda: self.handle_input(openai_model),
             placeholder="Enter a topic to construct graph knowledge",
         )
         st.text("Topic example: Machine Learning, Attention (Machine Learning), etc.")

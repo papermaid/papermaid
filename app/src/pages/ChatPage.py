@@ -65,7 +65,7 @@ class ChatPage:
         tasks = [self.chat_completion.process_file(file) for file in files]
         return await asyncio.gather(*tasks)
 
-    def handle_input(self, use_graph=False, *args, **kwargs):
+    def handle_input(self, openai_model, use_graph=False, *args, **kwargs):
         """
         Handle user input, generate a response, and update the chat history.
         """
@@ -82,6 +82,8 @@ class ChatPage:
                     user_input,
                     st.session_state["file_contents"],
                     st.session_state["Internet Access_results"],
+                    use_graph=use_graph,
+                    openai_model=openai_model
                 )
             )
 
@@ -89,15 +91,12 @@ class ChatPage:
             st.session_state["generated"].append(output)
             st.session_state["user_input"] = ""
 
-            if use_graph and self.knowledge_graph_manager.save_graph():
-                with open("nx.html", "r") as f:
-                    graph_html = f.read()
-                    html(graph_html, height=750, scrolling=True)
 
-    def write(self, use_graph=False):
+    def write(self, openai_model: str, use_graph: bool):
         """
         Render the chat interface and handle user interactions.
         """
+        logger.info("Rendering chat interface...")
         st.title("PaperMaid Chat")
 
         message(
@@ -113,9 +112,10 @@ class ChatPage:
                 z-index: 1000;
                 padding: 10px;
             }
-
+            
             div[data-testid="stFileUploader"] {
                 bottom: 50px;
+                width: 500px;
             }
 
             div[data-testid="element-container"] {
@@ -147,12 +147,13 @@ class ChatPage:
                 st.session_state["processed_files"].extend(new_files)
                 st.success(f"Successfully processed {len(new_files)} file(s)")
 
-        if st.session_state["generated"]:
-            for i in range(len(st.session_state["generated"])):
-                message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
-                message(st.session_state["generated"][i], key=str(i))
 
         with st.container():
+            if st.session_state["generated"]:
+                for i in range(len(st.session_state["generated"])):
+                    message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
+                    message(st.session_state["generated"][i], key=str(i))
+
             if st.session_state["Internet Access_results"]:
                 st.write("Related web search results:")
                 for result in st.session_state["Internet Access_results"][:3]:
@@ -164,13 +165,20 @@ class ChatPage:
                     else:
                         st.write(f"Unexpected result format: {result}")
 
+            if use_graph and self.knowledge_graph_manager.save_graph():
+                with open("nx.html", "r") as f:
+                    graph_html = f.read()
+                    html(graph_html, height=450)
+
                 st.write("---")
             else:
                 st.write("No web search results available.")
             st.text_input(
                 "Ask a question:",
                 key="user_input",
-                on_change=lambda: self.handle_input(use_graph=use_graph),
+                on_change=lambda: self.handle_input(openai_model=openai_model, use_graph=use_graph),
+                label_visibility="collapsed",
+                placeholder="Type your question here...",
             )
 
 

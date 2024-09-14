@@ -44,13 +44,15 @@ class ChatCompletion:
         user_input: str,
         file_contents: List[List[str]],
         bing_results: List[Tuple[str, str]],
+        use_graph: bool,
+        openai_model: str,
     ) -> str:
         logger.info("Starting completion: %s", user_input)
 
         summarized_contents = []
         for file_chunks in file_contents:
             file_summaries = await asyncio.gather(
-                *[self.summarize_content(chunk) for chunk in file_chunks]
+                *[self.summarize_content(chunk, openai_model=openai_model) for chunk in file_chunks]
             )
             summarized_contents.append("\n".join(file_summaries))
 
@@ -69,17 +71,17 @@ class ChatCompletion:
         search_results = self.vector_search(user_embeddings)
         chat_history = self.get_chat_history(3)
         completions_results = self.generate_completion(
-            combined_input, search_results, chat_history
+            combined_input, search_results, chat_history, use_graph, openai_model
         )
         completions_results = completions_results.choices[0].message.content
         logger.info("Done generating completions: %s", completions_results)
         return completions_results
 
-    async def summarize_content(self, content: str, max_tokens: int = 2000) -> str:
+    async def summarize_content(self, content: str, openai_model, max_tokens: int = 2000) -> str:
         summary_prompt = f"Summarize the following content in about {max_tokens} tokens, focusing on the most important information:\n\n{content}"
 
         response = self.client.chat.completions.create(
-            model=config.OPENAI_16k_MODEL,
+            model=openai_model,
             messages=[
                 {
                     "role": "system",
@@ -129,7 +131,7 @@ class ChatCompletion:
         return list(results)
 
     def generate_completion(
-        self, user_prompt: str, vector_search_results: list, chat_history: list[dict]
+        self, user_prompt: str, vector_search_results: list, chat_history: list[dict], use_graph: bool, openai_model: str
     ) -> Any:
         system_prompt = """
           You are an advanced AI assistant specializing in academic research analysis. Your primary functions are to summarize scientific papers and identify relationships among papers or conferences based on PDF files provided by users.
@@ -175,18 +177,19 @@ class ChatCompletion:
             context += f"Content: {result['document']['content'][:500]}...\n\n"
         messages.append({"role": "system", "content": context})
 
-        graph_info = self.knowledge_graph_manager.retriever(question=user_prompt)
-        messages.append(
-            {
-                "role": "system",
-                "content": f"Based on the information provided, here is a summary of the key points and relationships from the knowledge graph:\n{graph_info}",
-            }
-        )
+        if use_graph:
+            graph_info = self.knowledge_graph_manager.retriever(question=user_prompt)
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Based on the information provided, here is a summary of the key points and relationships from the knowledge graph:\n{graph_info}",
+                }
+            )
 
         logger.debug("Messages going to OpenAI: %s", messages)
-
+        logger.debug("use model: %s", openai_model)
         response = self.client.chat.completions.create(
-            model=config.OPENAI_16k_MODEL,
+            model=openai_model,
             messages=messages,
             temperature=0.3,
         )
