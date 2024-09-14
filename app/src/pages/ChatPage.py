@@ -79,7 +79,7 @@ class ChatPage:
             if use_graph and self.knowledge_graph_manager.save_graph():
                 with open("nx.html", "r") as f:
                     graph_html = f.read()
-                    html(graph_html, height=750)
+                    html(graph_html, height=750, scrolling=True)
 
     def write(self, use_graph=False):
         """
@@ -91,9 +91,27 @@ class ChatPage:
             "Welcome to PaperMaid! Ask me anything about your research.", is_user=False
         )
 
-        style = f"""
-    """
-        st.markdown(style, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stTextInput"], div[data-testid="stFileUploader"] {
+                position: fixed;
+                bottom: 0;
+                z-index: 1000;
+                padding: 10px;
+            }
+
+            div[data-testid="stFileUploader"] {
+                bottom: 50px;
+            }
+
+            div[data-testid="element-container"] {
+                bottom: 0;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
         uploaded_files = st.file_uploader(
             "Upload files",
@@ -121,11 +139,15 @@ class ChatPage:
                 message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
                 message(st.session_state["generated"][i], key=str(i))
 
-        st.text_input(
-            "Ask a question:",
-            key="user_input",
-            on_change=lambda: self.handle_input(use_graph=use_graph),
-        )
+        with st.container():
+            st.text_input(
+                "Ask a question:",
+                key="user_input",
+                placeholder="Type your question here...",
+                on_change=lambda: self.handle_input(use_graph=use_graph),
+                label_visibility="collapsed",
+            )
+            
 
 
 def main():

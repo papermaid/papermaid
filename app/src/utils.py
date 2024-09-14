@@ -37,17 +37,17 @@ def add_custom_css():
         }
 
         [data-testid=stSidebar] {
-            background-color: #1c1c1d;
+            background-color: #05060a;
             border-style: solid;
-            border-color: #2b2b2c;
+            border-color: #181b20;
         }
 
         [data-testid="stAppViewContainer"] > .main {
-            background-color: #161617;
+            background-color: #0e1117;
         }
 
         [data-testid="stHeader"] {
-            background-color: #161617;
+            background-color: #0e1117;
         }
         </style>
         """,
