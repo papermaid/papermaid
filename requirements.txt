@@ -17,3 +17,4 @@ langchain-experimental
 pyvis
 pypdf
 networkx
+wikipedia
