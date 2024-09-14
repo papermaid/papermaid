@@ -11,6 +11,7 @@ from PyPDF2.errors import PdfReadError
 from src.services.database import CosmosDB
 from src.services.langchain_embeddings import LangchainEmbeddingsGenerator
 import config
+import tempfile
 
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
@@ -192,13 +193,26 @@ class DataProcessor:
 
         return chunks
 
-    def pdf_to_document(self, file_path: str) -> list[Document]:
+    def pdf_to_document(self, uploaded_file) -> list[Document]:
         """
-        Convert a PDF files to a Langchain Document.
+        Convert an uploaded PDF file to a list of Langchain Document objects.
 
-        :param file_path: The path to the PDF file.
-        :return: A Langchain Document object.
+        :param uploaded_file: The UploadedFile object from Streamlit.
+        :return: A list of Langchain Document objects.
         """
-        loader = PyPDFLoader(file_path)
-        pages: List[Document] = loader.load_and_split()
-        return pages
+        try:
+            with tempfile.NamedTemporaryFile(delete=False,
+                                             suffix=".pdf") as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
+
+            loader = PyPDFLoader(temp_file_path)
+            pages: List[Document] = loader.load_and_split()
+
+            os.unlink(temp_file_path)
+
+            return pages
+        except Exception as e:
+            logger.error(
+                f"Error processing PDF file {uploaded_file.name}: {str(e)}")
+            return []

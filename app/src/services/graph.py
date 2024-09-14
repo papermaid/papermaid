@@ -59,13 +59,15 @@ class KnowledgeGraphManager:
         self.data_processor = data_processor
         self.__graph_data = {"nodes": set(), "edges": []}
 
-    def construct_graph(self, file_path: str):
-        """Construct a knowledge graph from a pdf file."""
+    async def construct_graph(self, uploaded_file):
+        """Construct a knowledge graph from an uploaded pdf file."""
         try:
-            logger.info(f"Constructing graph")
-            documents = self.data_processor.pdf_to_document(file_path)
+            logger.info(
+                f"Constructing graph from uploaded file: {uploaded_file.name}")
+            documents = self.data_processor.pdf_to_document(uploaded_file)
             logger.debug(f"Documents loaded")
-            graph_documents = self.llm_transformer.convert_to_graph_documents(documents)
+            graph_documents = self.llm_transformer.convert_to_graph_documents(
+                documents)
             logger.debug(f"Graph documents converted")
             self.graph.add_graph_documents(
                 graph_documents,
@@ -75,7 +77,6 @@ class KnowledgeGraphManager:
             logger.info(f"Graph constructed")
         except Exception as e:
             logger.error(f"Error constructing graph: {str(e)}")
-
 
     async def construct_graph_from_topic(self, topic: str) -> bool:
         """Construct a knowledge graph from a given topic."""
